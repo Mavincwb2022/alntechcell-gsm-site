@@ -7,126 +7,87 @@
   <title>ALNTECHCELLPRO | Serviços</title>
   <link rel="icon" type="image/png" href="/static/logo.png">
   <style>
-    :root { color-scheme:dark; --bg:#020817; --panel:#07162c; --panel-hi:#0a2040; --line:#123d70; --muted:#9ab8db; --text:#f2f8ff; --accent:#18baff; --accent-bright:#68dcff; }
-    * { box-sizing:border-box }
-    body { margin:0; min-height:100vh; padding:34px 16px; color:var(--text); font:16px/1.5 Inter,system-ui,Segoe UI,sans-serif; background:radial-gradient(ellipse at 50% -18%,#07498b 0,transparent 42%),radial-gradient(circle at 2% 45%,#06234b 0,transparent 32%),var(--bg) }
-    main { max-width:1040px; margin:auto }
-    header { margin:8px 0 28px; text-align:center }
-    .brand-lockup { display:flex; align-items:center; justify-content:center; gap:18px; margin:0 auto 18px }
-    .logo { width:clamp(88px,13vw,132px); aspect-ratio:1; object-fit:cover; border:2px solid #54d4ff; border-radius:50%; box-shadow:0 0 14px #00aaffaa,0 0 38px #008cff66 }
-    .brand { color:var(--accent-bright); letter-spacing:.2em; font-size:.78rem; font-weight:850; text-shadow:0 0 15px #00aaff99 }
-    h1 { margin:5px 0; color:#f6fbff; font-size:clamp(1.75rem,5vw,3rem); letter-spacing:-.04em; text-shadow:0 0 22px #009dff66 }
-    header p,.muted { color:var(--muted) }
-    .hero-banner { display:block; width:100%; max-height:190px; margin:20px auto 0; object-fit:cover; border:1px solid #26bfff; border-radius:16px; box-shadow:0 0 12px #008cff99,0 0 32px #006bff55 }
-    .grid { display:grid; grid-template-columns:1.2fr .8fr; gap:18px }
-    .card { padding:24px; border:1px solid #14518d; border-radius:18px; background:linear-gradient(155deg,#0b2140,#061225 78%); box-shadow:0 0 0 1px #008cff22,0 0 22px #006dff33,0 18px 50px #0007 }
-    h2 { margin:0 0 18px; color:#76ddff; font-size:1.15rem; text-shadow:0 0 14px #009dff66 }
-    label { display:block; margin:13px 0 6px; color:#dceeff; font-size:.88rem; font-weight:650 }
-    input,select { width:100%; min-height:45px; padding:10px 12px; border:1px solid #18518a; border-radius:9px; background:#030d1d; color:var(--text); font:inherit }
-    input:focus,select:focus { outline:2px solid #18baff77; border-color:var(--accent); box-shadow:0 0 14px #008dff55 }
-    button { width:100%; min-height:46px; margin-top:18px; border:1px solid #78e4ff; border-radius:10px; background:linear-gradient(110deg,#0874ed,#08c5ff); color:#00142b; font:inherit; font-weight:850; cursor:pointer; box-shadow:0 0 12px #009dff99,0 0 24px #007bff55 }
-    button:hover:not(:disabled) { filter:brightness(1.13); box-shadow:0 0 18px #00baffcc,0 0 32px #007bff77 }
-    button:disabled { opacity:.55; cursor:wait }
-    .message { min-height:24px; margin-top:12px; font-size:.9rem }
-    .service-hint { margin-top:6px; color:var(--muted); font-size:.84rem }
-    .result { margin-top:14px; padding-top:12px; border-top:1px solid var(--line) }
-    .result p { margin:8px 0 }
-    .pill { color:var(--accent-bright); font-weight:750 }
-    .foot { margin:20px; color:#81a8d4; font-size:.8rem; text-align:center }
-    @media(max-width:700px) { body{padding:22px 12px}.grid{grid-template-columns:1fr}.card{padding:20px}.brand-lockup{gap:12px}.hero-banner{max-height:120px;border-radius:12px} }
-    @media(max-width:420px) { .brand-lockup{flex-direction:column;gap:8px}.brand{font-size:.7rem} }
+    :root{color-scheme:dark;--bg:#030817;--panel:#08172b;--panel2:#0b1f3b;--line:#164d80;--muted:#9ab8d5;--text:#eef7ff;--blue:#159bff;--cyan:#55dfff;--green:#42e5b4;--danger:#ff9a9a}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -18%,#07366a 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,Segoe UI,sans-serif;min-height:100vh}button,input,select{font:inherit}button{cursor:pointer;color:inherit}
+    .topbar{height:76px;border-bottom:1px solid #12406d;background:#040d1d;display:flex;align-items:center;justify-content:space-between;padding:0 max(22px,calc((100vw - 1440px)/2));position:sticky;top:0;z-index:5;box-shadow:0 8px 28px #0006}.brand-lockup{display:flex;align-items:center;gap:12px}.logo{width:48px;height:48px;border-radius:50%;object-fit:cover;border:1px solid var(--cyan);box-shadow:0 0 16px #009dff77}.brand{font-size:1.05rem;font-weight:900;letter-spacing:.09em;color:var(--cyan);text-shadow:0 0 14px #00aaff66}.subbrand{font-size:.74rem;color:var(--muted)}.top-status{border:1px solid #17634f;background:#0b2a27;color:#8df3cb;padding:7px 12px;border-radius:99px;font-size:.78rem;font-weight:750}
+    .page{max-width:1440px;margin:0 auto;padding:24px 22px 48px}.hero{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;align-items:stretch;margin-bottom:20px}.hero-copy,.hero-art{border:1px solid #18508b;border-radius:18px;background:linear-gradient(140deg,#0c2850,#071327 72%);box-shadow:0 0 24px #007bff20;overflow:hidden}.hero-copy{padding:28px 32px;position:relative}.eyebrow{text-transform:uppercase;color:var(--cyan);font-size:.75rem;font-weight:850;letter-spacing:.18em}.hero h1{font-size:clamp(1.65rem,3.3vw,2.7rem);line-height:1.12;margin:9px 0 12px}.hero p{max-width:680px;color:var(--muted);margin:0}.hero-art img{width:100%;height:100%;max-height:220px;display:block;object-fit:cover}.quick-stats{display:flex;gap:22px;margin-top:22px;flex-wrap:wrap}.stat{font-size:.78rem;color:var(--muted)}.stat strong{display:block;color:#eff9ff;font-size:1.05rem}
+    .layout{display:grid;grid-template-columns:220px minmax(0,1fr) 350px;gap:18px;align-items:start}.panel{border:1px solid #154574;border-radius:16px;background:linear-gradient(150deg,#0a1c35,#071225);box-shadow:0 12px 36px #0004}.categories{padding:16px;position:sticky;top:94px}.panel-title{font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;color:#8cb8e0;margin:0 0 12px}.cat-list{display:grid;gap:6px}.cat-button{width:100%;border:1px solid transparent;background:transparent;text-align:left;padding:9px 10px;border-radius:9px;color:#bed2e5;display:flex;justify-content:space-between;gap:8px;font-size:.83rem}.cat-button:hover,.cat-button.active{background:#0d2d51;border-color:#1b67a5;color:white;box-shadow:inset 3px 0 var(--cyan)}.cat-count{color:#83a9c8;font-size:.73rem}.catalog{padding:18px}.catalog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}.catalog-head h2{font-size:1.3rem;margin:0}.catalog-head p{font-size:.82rem;color:var(--muted);margin:3px 0 0}.count-badge{white-space:nowrap;border:1px solid #18528b;border-radius:99px;padding:5px 10px;color:#a9d9ff;font-size:.76rem}.search-row{display:flex;gap:9px;margin:15px 0}.search{flex:1;position:relative}.search input{width:100%;height:44px;border-radius:10px;border:1px solid #20517c;background:#040e1d;color:var(--text);padding:0 14px 0 40px;outline:none}.search input:focus,.order input:focus,.order select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #18baff25}.search:before{content:'⌕';position:absolute;left:14px;top:7px;color:#7bbbe6;font-size:1.4rem}.sort-select{border:1px solid #20517c;border-radius:10px;background:#040e1d;color:#d8ecff;padding:0 10px;min-width:135px}.chips{display:flex;gap:7px;overflow:auto;padding:1px 1px 12px}.chip{white-space:nowrap;border:1px solid #1a4876;border-radius:99px;background:#08182c;color:#a9c7e0;padding:6px 11px;font-size:.76rem}.chip.active,.chip:hover{border-color:var(--cyan);background:#0b2b4b;color:white}.service-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.service-card{border:1px solid #153d66;border-radius:12px;padding:13px;background:linear-gradient(145deg,#0b1c32,#071225);transition:.16s;min-height:114px;display:flex;flex-direction:column;justify-content:space-between}.service-card:hover{border-color:#218dce;transform:translateY(-1px);box-shadow:0 0 15px #008dff2b}.service-card.selected{border-color:var(--cyan);box-shadow:0 0 0 1px #55dfff50,0 0 18px #00aaff30}.service-name{font-size:.88rem;font-weight:750;line-height:1.35}.service-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;font-size:.73rem;color:var(--muted)}.service-price{color:#83e9ff;font-weight:850}.choose{border:1px solid #236394;border-radius:7px;background:#0b2847;color:#bcdeff;padding:4px 8px;font-size:.72rem}.empty{grid-column:1/-1;border:1px dashed #24577e;border-radius:12px;padding:24px;color:var(--muted);text-align:center}.pagination{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:15px;color:var(--muted);font-size:.8rem}.page-btn{border:1px solid #20517c;background:#07172a;border-radius:8px;padding:6px 11px}.page-btn:disabled{opacity:.4;cursor:not-allowed}
+    .order{padding:18px;position:sticky;top:94px}.order h2{margin:0 0 4px;font-size:1.12rem}.order-intro{color:var(--muted);font-size:.78rem;margin:0 0 14px}.selected-box{border:1px solid #1d5991;border-radius:11px;padding:12px;background:#071a30;margin-bottom:14px}.selected-label{font-size:.68rem;color:#83b8df;text-transform:uppercase;letter-spacing:.1em}.selected-name{font-weight:800;margin:4px 0}.selected-data{font-size:.76rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px}.selected-price{color:var(--cyan);font-weight:850}.order label{display:block;font-size:.76rem;color:#c9dff2;margin:10px 0 5px}.order input,.order select{height:40px;width:100%;border-radius:8px;border:1px solid #1c4c77;background:#030d1b;color:var(--text);padding:0 10px;outline:none}.extra-fields{margin-top:4px}.consent{display:flex;align-items:flex-start;gap:9px;color:#b9cee1;font-size:.72rem;line-height:1.4;margin:13px 0}.consent input{width:17px;height:17px;flex:0 0 17px;margin:1px 0;accent-color:#18baff}.consent a{color:#73dfff}.submit{width:100%;height:44px;border:1px solid #8aeaff;border-radius:9px;background:linear-gradient(110deg,#0874ed,#08c5ff);color:#00142a;font-weight:900;box-shadow:0 0 16px #008cff55}.submit:disabled{opacity:.48;cursor:not-allowed}.hint{font-size:.69rem;color:#849eb8;margin:10px 0 0}.message{min-height:20px;margin:10px 0 0;font-size:.8rem;color:var(--cyan)}.tracking{margin-top:16px;border-top:1px solid #164168;padding-top:14px}.tracking summary{cursor:pointer;color:#b9dcf5;font-size:.8rem;font-weight:750}.tracking p{color:var(--muted);font-size:.72rem;margin:6px 0}.tracking-fields{display:grid;gap:8px;margin-top:8px}.footer{display:flex;justify-content:space-between;gap:10px;margin:20px 4px 0;color:#7695b3;font-size:.7rem;flex-wrap:wrap}.notice{color:#9ad0f2}.safe{color:#78e6bf}
+    .auth-area{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 18px;margin-bottom:18px}.auth-area h2{font-size:1rem;margin:0 0 3px}.auth-area p{font-size:.78rem;color:var(--muted);margin:0}.auth-form{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.auth-form input{height:39px;min-width:150px;border:1px solid #1c4c77;background:#030d1b;color:var(--text);border-radius:8px;padding:0 10px}.auth-button,.auth-toggle{border:1px solid #2682bd;border-radius:8px;background:#0b2948;padding:8px 11px;font-size:.78rem}.auth-button{background:linear-gradient(110deg,#0874ed,#08c5ff);border-color:#8aeaff;color:#00142a;font-weight:850}.account-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;margin-bottom:18px}.account-bar strong{color:var(--cyan)}.account-actions{display:flex;gap:8px;align-items:center}.orders-list{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:9px}.order-row{border:1px solid #1a456f;border-radius:8px;padding:9px;color:#c7dced;font-size:.73rem}.order-row b{color:#77e3ff}.error-line{color:var(--danger)!important}.account-title{font-size:.77rem;text-transform:uppercase;letter-spacing:.1em;color:#8cb8e0;margin:0 0 6px}
+    @media(max-width:1100px){.layout{grid-template-columns:190px minmax(0,1fr)}.order{position:static;grid-column:2}.categories{grid-row:span 2}.hero{grid-template-columns:1fr .7fr}}
+    @media(max-width:720px){.topbar{padding:0 14px;height:66px}.page{padding:16px 12px 30px}.hero{grid-template-columns:1fr}.hero-copy{padding:22px}.hero-art img{max-height:150px}.layout{grid-template-columns:1fr}.categories,.order{position:static;grid-column:auto}.categories{padding:12px}.cat-list{display:flex;overflow-x:auto}.cat-button{width:auto;white-space:nowrap}.service-grid{grid-template-columns:1fr}.catalog{padding:14px}.search-row{flex-direction:column}.sort-select{height:42px}.top-status{font-size:.68rem;padding:6px 9px}.logo{width:42px;height:42px}.brand{font-size:.9rem}.auth-area{grid-template-columns:1fr}.auth-form{display:grid;grid-template-columns:1fr}.auth-form input,.auth-form button{width:100%}.account-bar{align-items:flex-start;flex-direction:column}.account-actions{width:100%;flex-wrap:wrap}}
   </style>
 </head>
 <body>
-<main>
-  <header>
-    <div class="brand-lockup">
-      <img class="logo" src="/static/logo.png" alt="Logo ALNTECHCELLPRO Premium">
-      <div><div class="brand">ALNTECHCELLPRO</div><h1>Serviços para seu aparelho</h1></div>
-    </div>
-    <p>Faça seu pedido e acompanhe o andamento em um só lugar.</p>
-    <img class="hero-banner" src="/static/hero-banner.png" alt="ALNTECH CELL — soluções GSM, reparo avançado e liberação multimarcas">
-  </header>
-  <div class="grid">
-    <section class="card">
-      <h2>Solicitar serviço</h2>
+<nav class="topbar" aria-label="Navegação principal">
+  <div class="brand-lockup"><img class="logo" src="/static/logo.png" alt="Logo ALNTECHCELLPRO"><div><div class="brand">ALNTECHCELLPRO</div><div class="subbrand">Central de serviços técnicos</div></div></div>
+  <div class="top-status">● Catálogo online</div>
+</nav>
+<main class="page">
+  <section class="hero">
+    <div class="hero-copy"><div class="eyebrow">Painel de atendimento</div><h1>Serviços para técnicos, em um só lugar.</h1><p>Pesquise no catálogo, confira o valor e selecione o serviço. Seus dados e o pedido ficam na mesma tela.</p><div class="quick-stats"><div class="stat"><strong id="serviceTotal">—</strong>serviços disponíveis</div><div class="stat"><strong>Pedido acompanhado</strong>consulte pelo IMEI e WhatsApp</div></div></div>
+    <div class="hero-art"><img src="/static/hero-banner.png" alt="ALNTECHCELLPRO — soluções para assistência técnica"></div>
+  </section>
+  <section id="authPanel" class="panel auth-area">
+    <div><h2 id="authHeading">Acesse sua conta</h2><p id="authDescription">Crie uma conta com e-mail e WhatsApp para manter seus pedidos separados e acompanhá-los aqui.</p><div id="authMessage" class="message" role="status" aria-live="polite"></div></div>
+    <form id="authForm" class="auth-form"><input id="authName" placeholder="Seu nome" autocomplete="name" required hidden><input id="authEmail" type="email" placeholder="E-mail" autocomplete="email" required><input id="authWhatsapp" placeholder="WhatsApp" autocomplete="tel" required hidden><input id="authPassword" type="password" placeholder="Senha (mínimo 12 caracteres)" autocomplete="current-password" required><button id="authSubmit" class="auth-button" type="submit">Entrar</button><button id="authToggle" class="auth-toggle" type="button">Criar conta</button></form>
+  </section>
+  <section id="accountPanel" class="panel account-bar" hidden><div><div class="account-title">Sua conta</div><strong id="accountName"></strong><div class="subbrand" id="accountEmail"></div><div id="ordersList" class="orders-list"></div></div><div class="account-actions"><a id="adminLink" class="auth-toggle" href="/admin" hidden>Painel administrador</a><button id="logoutButton" class="auth-toggle" type="button">Sair</button></div></section>
+  <div class="layout">
+    <aside class="panel categories"><h2 class="panel-title">Categorias</h2><div id="categoryList" class="cat-list"><button class="cat-button active" data-category="Todos">Todos <span class="cat-count">…</span></button></div></aside>
+    <section class="panel catalog" id="catalogo">
+      <div class="catalog-head"><div><h2>Catálogo de serviços</h2><p>Use a busca e os filtros para encontrar o que precisa.</p></div><span id="resultCount" class="count-badge">Carregando…</span></div>
+      <div class="search-row"><div class="search"><input id="serviceSearch" type="search" placeholder="Buscar serviço, marca ou modelo…" aria-label="Buscar serviço"></div><select class="sort-select" id="sortServices" aria-label="Ordenar serviços"><option value="name">Nome A–Z</option><option value="price-asc">Menor valor</option><option value="price-desc">Maior valor</option></select></div>
+      <div id="categoryChips" class="chips" aria-label="Filtros de categoria"></div>
+      <div id="serviceGrid" class="service-grid"><div class="empty">Carregando catálogo da UnlockCleaning…</div></div>
+      <div class="pagination"><button class="page-btn" id="prevPage">Anterior</button><span id="pageLabel">Página 1</span><button class="page-btn" id="nextPage">Próxima</button></div>
+    </section>
+    <aside class="panel order" id="pedido" hidden>
+      <h2>Solicitar serviço</h2><p class="order-intro">Selecione um item do catálogo e preencha os dados do aparelho.</p>
+      <div class="selected-box"><div class="selected-label">Serviço selecionado</div><div class="selected-name" id="selectedName">Escolha um serviço no catálogo</div><div class="selected-data"><span id="selectedGroup">—</span><span class="selected-price" id="selectedPrice">—</span></div></div>
       <form id="formPedido">
-        <label for="nome">Nome</label><input id="nome" maxlength="100" autocomplete="name" required>
+        <input id="servico" type="hidden" required>
+        <label for="nome">Seu nome</label><input id="nome" maxlength="100" autocomplete="name" required>
         <label for="whatsapp-pedido">WhatsApp</label><input id="whatsapp-pedido" maxlength="30" autocomplete="tel" placeholder="(00) 00000-0000" required>
         <label for="modelo">Modelo do aparelho</label><input id="modelo" maxlength="100" placeholder="Ex.: iPhone 13" required>
         <label for="imei">IMEI / número de série</label><input id="imei" maxlength="80" required>
-        <label for="servico">Serviço</label><select id="servico" required><option value="">Carregando catálogo…</option></select>
-        <div id="camposExtras"></div>
-        <div id="serviceHint" class="service-hint"></div>
-        <button id="submitPedido" type="submit">Enviar pedido</button>
-      </form><div id="respPedido" class="message" role="status" aria-live="polite"></div>
-    </section>
-    <section class="card">
-      <h2>Consultar pedido</h2>
-      <p class="muted">Use o mesmo WhatsApp informado no pedido.</p>
-      <form id="formConsulta">
-        <label for="busca-imei">IMEI / número de série</label><input id="busca-imei" required>
-        <label for="busca-whatsapp">WhatsApp</label><input id="busca-whatsapp" autocomplete="tel" required>
-        <button type="submit">Consultar status</button>
-      </form><div id="respConsulta" class="message" role="status" aria-live="polite"></div>
-    </section>
+        <label for="cpf">CPF para cobrança PicPay</label><input id="cpf" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" required>
+        <div id="camposExtras" class="extra-fields"></div><div id="serviceHint" class="hint"></div>
+        <label class="consent"><input id="consentimento" type="checkbox" required><span>Confirmo que sou proprietário do aparelho ou tenho autorização expressa do proprietário. Solicito o serviço para uso legal e autorizado.</span></label>
+        <label class="consent"><input id="picpayConsent" type="checkbox" required><span>Autorizo o envio do meu nome, e-mail, telefone e CPF ao PicPay para gerar e confirmar esta cobrança Pix.</span></label>
+        <button id="submitPedido" class="submit" type="submit" disabled>Gerar Pix e solicitar serviço</button>
+      </form>
+      <div id="respPedido" class="message" role="status" aria-live="polite"></div>
+      <section id="paymentPanel" class="selected-box" hidden><div class="selected-label">Pix PicPay</div><div id="paymentStatus" class="selected-name">Aguardando pagamento</div><div id="paymentAmount" class="selected-price"></div><img id="paymentQr" alt="QR Code Pix" style="display:none;width:190px;max-width:100%;margin:12px auto"><textarea id="pixCopy" readonly aria-label="Pix Copia e Cola" style="width:100%;min-height:82px;margin-top:8px;background:#030d1b;color:#dff6ff;border:1px solid #1c4c77;border-radius:8px;padding:8px;overflow-wrap:anywhere"></textarea><button id="copyPix" class="page-btn" type="button">Copiar Pix Copia e Cola</button></section>
+    </aside>
   </div>
-  <div class="foot">Catálogo, pedidos e status conectados à API UnlockCleaning.</div>
+  <footer class="footer"><span class="notice">Catálogo e pedidos conectados à API UnlockCleaning.</span><span class="safe">Solicite apenas serviços autorizados pelo proprietário.</span></footer>
 </main>
 <script>
-const $ = (id) => document.getElementById(id);
-let serviceData = [];
-function showError(target, message) { target.textContent = message; target.style.color = '#ff8e8e'; }
-async function loadServices() {
-  const select = $('servico');
-  try {
-    const response = await fetch('/api/servicos'); const data = await response.json();
-    if (!response.ok) throw new Error(data.erro || 'Não foi possível carregar os serviços.');
-    serviceData = data.services;
-    select.replaceChildren(new Option('Escolha um serviço', ''));
-    for (const service of serviceData) {
-      const group = service.group || 'Serviços';
-      let optgroup = select.querySelector(`optgroup[data-group="${CSS.escape(group)}"]`);
-      if (!optgroup) { optgroup = document.createElement('optgroup'); optgroup.label = group; optgroup.dataset.group = group; select.append(optgroup); }
-      const price = service.price !== '' ? ` · ${service.price}` : '';
-      optgroup.append(new Option(`${service.name}${price}`, service.id));
-    }
-    if (!serviceData.length) throw new Error('O catálogo não contém serviços disponíveis.');
-    select.addEventListener('change', renderExtraFields);
-  } catch (error) { select.replaceChildren(new Option('Catálogo indisponível', '')); showError($('respPedido'), error.message); }
-}
-function renderExtraFields() {
-  const service = serviceData.find(item => item.id === $('servico').value);
-  const host = $('camposExtras'); host.replaceChildren();
-  $('serviceHint').textContent = service?.time ? `Prazo informado: ${service.time}` : '';
-  const fields = service?.custom || [];
-  for (const field of fields) {
-    const name = field.fieldname || 'Informação'; const id = `field-${name.replace(/[^a-z0-9]/gi,'-')}`;
-    const label = document.createElement('label'); label.htmlFor = id; label.textContent = name;
-    const input = document.createElement('input'); input.id = id; input.name = name; input.required = field.required === 'on';
-    host.append(label, input);
-  }
-}
-$('formPedido').addEventListener('submit', async (event) => {
-  event.preventDefault(); const button = $('submitPedido'); const message = $('respPedido'); button.disabled = true; message.textContent = 'Enviando pedido…'; message.style.color = '';
-  const campos = {}; $('camposExtras').querySelectorAll('input').forEach(input => campos[input.name] = input.value.trim());
-  try {
-    const response = await fetch('/api/pedidos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:$('nome').value.trim(), whatsapp:$('whatsapp-pedido').value.trim(), modelo:$('modelo').value.trim(), imei_sn:$('imei').value.trim(), servico_id:$('servico').value, campos})});
-    const data = await response.json(); if (!response.ok) throw new Error(data.erro || 'Não foi possível enviar o pedido.');
-    message.textContent = data.mensagem; message.style.color = 'var(--accent)'; $('formPedido').reset(); $('camposExtras').replaceChildren();
-  } catch(error) { showError(message, error.message); } finally { button.disabled = false; }
-});
-$('formConsulta').addEventListener('submit', async (event) => {
-  event.preventDefault(); const message = $('respConsulta'); message.textContent = 'Consultando…'; message.style.color = '';
-  try {
-    const response = await fetch('/api/pedidos/consultar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({imei_sn:$('busca-imei').value.trim(), whatsapp:$('busca-whatsapp').value.trim()})});
-    const data = await response.json(); if (!response.ok) throw new Error(data.mensagem || data.erro || 'Não foi possível consultar.');
-    message.replaceChildren(); const list = document.createElement('div'); list.className = 'result';
-    for (const order of data.pedidos) { const row = document.createElement('p'); row.textContent = `Pedido #${order.id} · ${order.modelo} · ${order.servico} — ${order.status}`; list.append(row); }
-    message.append(list);
-  } catch(error) { showError(message, error.message); }
-});
-loadServices();
+const $ = id => document.getElementById(id);
+let serviceData = [], filteredServices = [], selectedService = null, activeCategory = 'Todos', currentPage = 1, currentAccount = null, authMode = 'login', activePaymentId = null, paymentPoll = null;
+const pageSize = 24;
+function showError(target, message){target.textContent=message;target.style.color='var(--danger)'}
+function formatPrice(value){const number=Number(String(value).replace(',','.'));return Number.isFinite(number)&&number>0?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(number):'Consultar'}
+function categories(){return [...new Set(serviceData.map(s=>s.group||'Serviços'))].sort((a,b)=>a.localeCompare(b,'pt-BR'))}
+function buildCategories(){const all=['Todos',...categories()];$('categoryList').replaceChildren();$('categoryChips').replaceChildren();for(const name of all){const total=name==='Todos'?serviceData.length:serviceData.filter(s=>(s.group||'Serviços')===name).length;const side=document.createElement('button');side.className='cat-button'+(activeCategory===name?' active':'');side.dataset.category=name;side.append(document.createTextNode(name));const count=document.createElement('span');count.className='cat-count';count.textContent=total;side.append(count);side.addEventListener('click',()=>setCategory(name));$('categoryList').append(side);const chip=document.createElement('button');chip.className='chip'+(activeCategory===name?' active':'');chip.textContent=name;chip.addEventListener('click',()=>setCategory(name));$('categoryChips').append(chip)}}
+function setCategory(name){activeCategory=name;currentPage=1;buildCategories();renderServices()}
+function applyFilters(){const query=$('serviceSearch').value.trim().toLocaleLowerCase('pt-BR');filteredServices=serviceData.filter(s=>(activeCategory==='Todos'||(s.group||'Serviços')===activeCategory)&&(!query||(s.name+' '+s.group).toLocaleLowerCase('pt-BR').includes(query)));const sort=$('sortServices').value;if(sort==='name')filteredServices.sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));else filteredServices.sort((a,b)=>{const x=parseFloat(a.price)||0,y=parseFloat(b.price)||0;return sort==='price-asc'?x-y:y-x})}
+function renderServices(){applyFilters();const host=$('serviceGrid');host.replaceChildren();const pages=Math.max(1,Math.ceil(filteredServices.length/pageSize));currentPage=Math.min(currentPage,pages);$('resultCount').textContent=filteredServices.length+' resultado'+(filteredServices.length===1?'':'s');$('pageLabel').textContent='Página '+currentPage+' de '+pages;$('prevPage').disabled=currentPage<=1;$('nextPage').disabled=currentPage>=pages;if(!filteredServices.length){host.innerHTML='<div class="empty">Nenhum serviço encontrado. Tente outra busca ou categoria.</div>';return}const start=(currentPage-1)*pageSize;for(const service of filteredServices.slice(start,start+pageSize)){const card=document.createElement('article');card.className='service-card'+(selectedService?.id===service.id?' selected':'');const title=document.createElement('div');title.className='service-name';title.textContent=service.name;const meta=document.createElement('div');meta.className='service-meta';const price=document.createElement('span');price.className='service-price';price.textContent=formatPrice(service.price);const choose=document.createElement('button');choose.type='button';choose.className='choose';choose.textContent=selectedService?.id===service.id?'Selecionado':'Selecionar';choose.addEventListener('click',()=>selectService(service));meta.append(price,choose);card.append(title,meta);card.addEventListener('dblclick',()=>selectService(service));host.append(card)}}
+function selectService(service){if(!currentAccount){$('authMessage').textContent='Entre ou crie uma conta para solicitar e acompanhar pedidos.';$('authPanel').scrollIntoView({behavior:'smooth',block:'center'});return}selectedService=service;$('servico').value=service.id;$('selectedName').textContent=service.name;$('selectedGroup').textContent=service.group||'Serviços';$('selectedPrice').textContent=formatPrice(service.price);$('serviceHint').textContent=service.time?'Prazo informado: '+service.time:'';$('submitPedido').disabled=!$('consentimento').checked||!$('picpayConsent').checked;const fields=$('camposExtras');fields.replaceChildren();for(const field of service.custom||[]){const name=field.fieldname||'Informação',id='field-'+name.replace(/[^a-z0-9]/gi,'-');const label=document.createElement('label');label.htmlFor=id;label.textContent=name;const input=document.createElement('input');input.id=id;input.name=name;input.required=field.required==='on';fields.append(label,input)}renderServices();if(window.matchMedia('(max-width:1100px)').matches)$('pedido').scrollIntoView({behavior:'smooth',block:'start'})}
+async function loadServices(){try{const response=await fetch('/api/servicos');const data=await response.json();if(!response.ok)throw new Error(data.erro||'Não foi possível carregar o catálogo.');serviceData=(data.services||[]).filter(s=>s.id&&s.name);$('serviceTotal').textContent=serviceData.length.toLocaleString('pt-BR');buildCategories();renderServices();if(!serviceData.length)throw new Error('O catálogo não contém serviços disponíveis.')}catch(error){$('serviceGrid').innerHTML='<div class="empty">Catálogo temporariamente indisponível. Atualize a página em alguns instantes.</div>';showError($('respPedido'),error.message);$('resultCount').textContent='Indisponível'}}
+$('serviceSearch').addEventListener('input',()=>{currentPage=1;renderServices()});$('sortServices').addEventListener('change',()=>{currentPage=1;renderServices()});$('prevPage').addEventListener('click',()=>{currentPage--;renderServices()});$('nextPage').addEventListener('click',()=>{currentPage++;renderServices()});function updateSubmitState(){$('submitPedido').disabled=!selectedService||!$('consentimento').checked||!$('picpayConsent').checked}$('consentimento').addEventListener('change',updateSubmitState);$('picpayConsent').addEventListener('change',updateSubmitState);
+function setAuthMode(mode){authMode=mode;const register=mode==='register';$('authHeading').textContent=register?'Criar conta de cliente':'Acesse sua conta';$('authDescription').textContent=register?'Use seu nome, e-mail e WhatsApp. Seus pedidos ficam vinculados à sua conta.':'Entre para solicitar serviços e acompanhar seus pedidos nesta página.';$('authName').hidden=!register;$('authName').required=register;$('authWhatsapp').hidden=!register;$('authWhatsapp').required=register;$('authPassword').placeholder=register?'Crie uma senha com pelo menos 12 caracteres':'Senha';$('authPassword').autocomplete=register?'new-password':'current-password';$('authSubmit').textContent=register?'Criar conta':'Entrar';$('authToggle').textContent=register?'Já tenho conta':'Criar conta';$('authMessage').textContent=''}
+async function loadMyOrders(){const list=$('ordersList');list.replaceChildren();const response=await fetch('/api/minha-conta/pedidos');if(!response.ok)return;const data=await response.json();if(!data.pedidos.length){const empty=document.createElement('div');empty.className='order-row';empty.textContent='Ainda não há pedidos vinculados à sua conta.';list.append(empty);return}for(const pedido of data.pedidos){const row=document.createElement('div');row.className='order-row';row.textContent='Pedido #'+pedido.id+' · '+pedido.servico+' · '+pedido.modelo+' — '+pedido.status;list.append(row)}}
+function showAccount(user){currentAccount=user;$('authPanel').hidden=!!user;$('accountPanel').hidden=!user;$('pedido').hidden=!user;if(user){$('accountName').textContent=user.nome;$('accountEmail').textContent=user.email;$('adminLink').hidden=user.papel!=='admin';$('nome').value=user.nome;$('nome').readOnly=true;$('whatsapp-pedido').value=user.whatsapp||'';$('whatsapp-pedido').readOnly=true;loadMyOrders()}else{$('nome').readOnly=false;$('whatsapp-pedido').readOnly=false}}
+async function loadAccount(){try{const response=await fetch('/api/auth/me');const data=await response.json();showAccount(data.usuario)}catch(_){showAccount(null)}}
+$('authToggle').addEventListener('click',()=>setAuthMode(authMode==='login'?'register':'login'));
+$('authForm').addEventListener('submit',async event=>{event.preventDefault();const message=$('authMessage'),register=authMode==='register';message.textContent=register?'Criando sua conta…':'Entrando…';message.classList.remove('error-line');try{const body=register?{nome:$('authName').value.trim(),email:$('authEmail').value.trim(),whatsapp:$('authWhatsapp').value.trim(),senha:$('authPassword').value}:{email:$('authEmail').value.trim(),senha:$('authPassword').value};const response=await fetch(register?'/api/auth/register':'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.erro||'Não foi possível entrar.');message.textContent='';showAccount(data.usuario);$('authForm').reset();setAuthMode('login')}catch(error){message.textContent=error.message;message.classList.add('error-line')}});
+$('logoutButton').addEventListener('click',async()=>{await fetch('/api/auth/logout',{method:'POST'});selectedService=null;$('servico').value='';$('selectedName').textContent='Escolha um serviço no catálogo';$('selectedGroup').textContent='—';$('selectedPrice').textContent='—';showAccount(null);renderServices()});
+$('formPedido').addEventListener('submit',async event=>{event.preventDefault();if(!selectedService||!$('consentimento').checked||!$('picpayConsent').checked)return;const button=$('submitPedido'),message=$('respPedido');button.disabled=true;message.textContent='Gerando cobrança Pix segura…';message.style.color='';const campos={};$('camposExtras').querySelectorAll('input').forEach(input=>campos[input.name]=input.value.trim());try{const response=await fetch('/api/pagamentos/pix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modelo:$('modelo').value.trim(),imei_sn:$('imei').value.trim(),cpf:$('cpf').value,servico_id:$('servico').value,campos,autorizado:true,dados_picpay_ok:true})});const data=await response.json();if(!response.ok)throw new Error(data.erro||'Não foi possível gerar o Pix.');activePaymentId=data.pagamento_id;$('paymentPanel').hidden=false;$('paymentStatus').textContent='Aguardando pagamento';$('paymentAmount').textContent=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(data.valor_centavos/100);$('pixCopy').value=data.pix_copia_cola||'';if(data.pix_qrcode_base64){$('paymentQr').src=data.pix_qrcode_base64.startsWith('data:image/')?data.pix_qrcode_base64:'data:image/png;base64,'+data.pix_qrcode_base64;$('paymentQr').style.display='block'}else{$('paymentQr').style.display='none'}message.textContent='Pix criado. O pedido só será enviado ao servidor depois da confirmação do pagamento.';message.style.color='var(--cyan)';if(paymentPoll)clearInterval(paymentPoll);paymentPoll=setInterval(checkPaymentStatus,10000);checkPaymentStatus()}catch(error){showError(message,error.message)}finally{updateSubmitState()}});
+$('copyPix').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('pixCopy').value);$('copyPix').textContent='Pix copiado'}catch(_){$('pixCopy').select();document.execCommand('copy');$('copyPix').textContent='Pix copiado'}});
+async function checkPaymentStatus(){if(!activePaymentId)return;try{const response=await fetch('/api/pagamentos/'+activePaymentId);const data=await response.json();if(!response.ok)return;$('paymentStatus').textContent=data.status==='PAID'?'Pagamento confirmado · serviço enviado':data.status==='ORDER_ERROR'?'Pagamento confirmado · envio em análise do suporte':data.status==='PENDING'?'Aguardando pagamento':data.status;if(data.status==='PAID'||data.status==='ORDER_ERROR'){clearInterval(paymentPoll);paymentPoll=null;$('respPedido').textContent=data.status==='PAID'?'Pagamento confirmado. Seu pedido já está na sua conta.':'Pagamento recebido. O pedido precisa de análise do suporte.';$('respPedido').style.color=data.status==='PAID'?'var(--green)':'var(--cyan)';loadMyOrders()}}catch(_){}}
+setAuthMode('login');loadServices();loadAccount();
 </script>
 </body>
 </html>
