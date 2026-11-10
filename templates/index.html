@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#020817">
+  <title>ALNTECH CELL | Serviços</title>
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <style>
+    :root { color-scheme:dark; --bg:#020817; --panel:#07162c; --panel-hi:#0a2040; --line:#123d70; --muted:#9ab8db; --text:#f2f8ff; --accent:#18baff; --accent-bright:#68dcff; }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100vh; padding:34px 16px; color:var(--text); font:16px/1.5 Inter,system-ui,Segoe UI,sans-serif; background:radial-gradient(ellipse at 50% -18%,#07498b 0,transparent 42%),radial-gradient(circle at 2% 45%,#06234b 0,transparent 32%),var(--bg) }
+    main { max-width:1040px; margin:auto }
+    header { margin:8px 0 28px; text-align:center }
+    .brand-lockup { display:flex; align-items:center; justify-content:center; gap:18px; margin:0 auto 18px }
+    .logo { width:clamp(88px,13vw,132px); aspect-ratio:1; object-fit:cover; border:2px solid #54d4ff; border-radius:50%; box-shadow:0 0 14px #00aaffaa,0 0 38px #008cff66 }
+    .brand { color:var(--accent-bright); letter-spacing:.2em; font-size:.78rem; font-weight:850; text-shadow:0 0 15px #00aaff99 }
+    h1 { margin:5px 0; color:#f6fbff; font-size:clamp(1.75rem,5vw,3rem); letter-spacing:-.04em; text-shadow:0 0 22px #009dff66 }
+    header p,.muted { color:var(--muted) }
+    .hero-banner { display:block; width:100%; max-height:190px; margin:20px auto 0; object-fit:cover; border:1px solid #26bfff; border-radius:16px; box-shadow:0 0 12px #008cff99,0 0 32px #006bff55 }
+    .grid { display:grid; grid-template-columns:1.2fr .8fr; gap:18px }
+    .card { padding:24px; border:1px solid #14518d; border-radius:18px; background:linear-gradient(155deg,#0b2140,#061225 78%); box-shadow:0 0 0 1px #008cff22,0 0 22px #006dff33,0 18px 50px #0007 }
+    h2 { margin:0 0 18px; color:#76ddff; font-size:1.15rem; text-shadow:0 0 14px #009dff66 }
+    label { display:block; margin:13px 0 6px; color:#dceeff; font-size:.88rem; font-weight:650 }
+    input,select { width:100%; min-height:45px; padding:10px 12px; border:1px solid #18518a; border-radius:9px; background:#030d1d; color:var(--text); font:inherit }
+    input:focus,select:focus { outline:2px solid #18baff77; border-color:var(--accent); box-shadow:0 0 14px #008dff55 }
+    button { width:100%; min-height:46px; margin-top:18px; border:1px solid #78e4ff; border-radius:10px; background:linear-gradient(110deg,#0874ed,#08c5ff); color:#00142b; font:inherit; font-weight:850; cursor:pointer; box-shadow:0 0 12px #009dff99,0 0 24px #007bff55 }
+    button:hover:not(:disabled) { filter:brightness(1.13); box-shadow:0 0 18px #00baffcc,0 0 32px #007bff77 }
+    button:disabled { opacity:.55; cursor:wait }
+    .message { min-height:24px; margin-top:12px; font-size:.9rem }
+    .service-hint { margin-top:6px; color:var(--muted); font-size:.84rem }
+    .result { margin-top:14px; padding-top:12px; border-top:1px solid var(--line) }
+    .result p { margin:8px 0 }
+    .pill { color:var(--accent-bright); font-weight:750 }
+    .foot { margin:20px; color:#81a8d4; font-size:.8rem; text-align:center }
+    @media(max-width:700px) { body{padding:22px 12px}.grid{grid-template-columns:1fr}.card{padding:20px}.brand-lockup{gap:12px}.hero-banner{max-height:120px;border-radius:12px} }
+    @media(max-width:420px) { .brand-lockup{flex-direction:column;gap:8px}.brand{font-size:.7rem} }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand-lockup">
+      <img class="logo" src="/static/logo.png" alt="Logo ALNTECH CELL Premium">
+      <div><div class="brand">ALNTECH CELL PREMIUM</div><h1>Serviços para seu aparelho</h1></div>
+    </div>
+    <p>Faça seu pedido e acompanhe o andamento em um só lugar.</p>
+    <img class="hero-banner" src="/static/hero-banner.png" alt="ALNTECH CELL — soluções GSM, reparo avançado e liberação multimarcas">
+  </header>
+  <div class="grid">
+    <section class="card">
+      <h2>Solicitar serviço</h2>
+      <form id="formPedido">
+        <label for="nome">Nome</label><input id="nome" maxlength="100" autocomplete="name" required>
+        <label for="whatsapp-pedido">WhatsApp</label><input id="whatsapp-pedido" maxlength="30" autocomplete="tel" placeholder="(00) 00000-0000" required>
+        <label for="modelo">Modelo do aparelho</label><input id="modelo" maxlength="100" placeholder="Ex.: iPhone 13" required>
+        <label for="imei">IMEI / número de série</label><input id="imei" maxlength="80" required>
+        <label for="servico">Serviço</label><select id="servico" required><option value="">Carregando catálogo…</option></select>
+        <div id="camposExtras"></div>
+        <div id="serviceHint" class="service-hint"></div>
+        <button id="submitPedido" type="submit">Enviar pedido</button>
+      </form><div id="respPedido" class="message" role="status" aria-live="polite"></div>
+    </section>
+    <section class="card">
+      <h2>Consultar pedido</h2>
+      <p class="muted">Use o mesmo WhatsApp informado no pedido.</p>
+      <form id="formConsulta">
+        <label for="busca-imei">IMEI / número de série</label><input id="busca-imei" required>
+        <label for="busca-whatsapp">WhatsApp</label><input id="busca-whatsapp" autocomplete="tel" required>
+        <button type="submit">Consultar status</button>
+      </form><div id="respConsulta" class="message" role="status" aria-live="polite"></div>
+    </section>
+  </div>
+  <div class="foot">Catálogo, pedidos e status conectados à API UnlockCleaning.</div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let serviceData = [];
+function showError(target, message) { target.textContent = message; target.style.color = '#ff8e8e'; }
+async function loadServices() {
+  const select = $('servico');
+  try {
+    const response = await fetch('/api/servicos'); const data = await response.json();
+    if (!response.ok) throw new Error(data.erro || 'Não foi possível carregar os serviços.');
+    serviceData = data.services;
+    select.replaceChildren(new Option('Escolha um serviço', ''));
+    for (const service of serviceData) {
+      const group = service.group || 'Serviços';
+      let optgroup = select.querySelector(`optgroup[data-group="${CSS.escape(group)}"]`);
+      if (!optgroup) { optgroup = document.createElement('optgroup'); optgroup.label = group; optgroup.dataset.group = group; select.append(optgroup); }
+      const price = service.price !== '' ? ` · ${service.price}` : '';
+      optgroup.append(new Option(`${service.name}${price}`, service.id));
+    }
+    if (!serviceData.length) throw new Error('O catálogo não contém serviços disponíveis.');
+    select.addEventListener('change', renderExtraFields);
+  } catch (error) { select.replaceChildren(new Option('Catálogo indisponível', '')); showError($('respPedido'), error.message); }
+}
+function renderExtraFields() {
+  const service = serviceData.find(item => item.id === $('servico').value);
+  const host = $('camposExtras'); host.replaceChildren();
+  $('serviceHint').textContent = service?.time ? `Prazo informado: ${service.time}` : '';
+  const fields = service?.custom || [];
+  for (const field of fields) {
+    const name = field.fieldname || 'Informação'; const id = `field-${name.replace(/[^a-z0-9]/gi,'-')}`;
+    const label = document.createElement('label'); label.htmlFor = id; label.textContent = name;
+    const input = document.createElement('input'); input.id = id; input.name = name; input.required = field.required === 'on';
+    host.append(label, input);
+  }
+}
+$('formPedido').addEventListener('submit', async (event) => {
+  event.preventDefault(); const button = $('submitPedido'); const message = $('respPedido'); button.disabled = true; message.textContent = 'Enviando pedido…'; message.style.color = '';
+  const campos = {}; $('camposExtras').querySelectorAll('input').forEach(input => campos[input.name] = input.value.trim());
+  try {
+    const response = await fetch('/api/pedidos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome:$('nome').value.trim(), whatsapp:$('whatsapp-pedido').value.trim(), modelo:$('modelo').value.trim(), imei_sn:$('imei').value.trim(), servico_id:$('servico').value, campos})});
+    const data = await response.json(); if (!response.ok) throw new Error(data.erro || 'Não foi possível enviar o pedido.');
+    message.textContent = data.mensagem; message.style.color = 'var(--accent)'; $('formPedido').reset(); $('camposExtras').replaceChildren();
+  } catch(error) { showError(message, error.message); } finally { button.disabled = false; }
+});
+$('formConsulta').addEventListener('submit', async (event) => {
+  event.preventDefault(); const message = $('respConsulta'); message.textContent = 'Consultando…'; message.style.color = '';
+  try {
+    const response = await fetch('/api/pedidos/consultar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({imei_sn:$('busca-imei').value.trim(), whatsapp:$('busca-whatsapp').value.trim()})});
+    const data = await response.json(); if (!response.ok) throw new Error(data.mensagem || data.erro || 'Não foi possível consultar.');
+    message.replaceChildren(); const list = document.createElement('div'); list.className = 'result';
+    for (const order of data.pedidos) { const row = document.createElement('p'); row.textContent = `Pedido #${order.id} · ${order.modelo} · ${order.servico} — ${order.status}`; list.append(row); }
+    message.append(list);
+  } catch(error) { showError(message, error.message); }
+});
+loadServices();
+</script>
+</body>
+</html>
