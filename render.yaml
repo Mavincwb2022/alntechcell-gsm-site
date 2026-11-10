@@ -1,0 +1,20 @@
+databases:
+  - name: alntechcell-gsm-db
+    databaseName: alntechcell_gsm_site
+    plan: free
+
+services:
+  - type: web
+    name: alntechcell-gsm-site
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: alntechcell-gsm-db
+          property: connectionString
+      - key: UNLOCKCLEAN_API_KEY
+        sync: false
