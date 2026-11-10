@@ -18,3 +18,19 @@ services:
           property: connectionString
       - key: UNLOCKCLEAN_API_KEY
         sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: alntechunlocker@gmail.com
+      - key: ADMIN_SETUP_TOKEN
+        generateValue: true
+      - key: PICPAY_CLIENT_ID
+        sync: false
+      - key: PICPAY_CLIENT_SECRET
+        sync: false
+      - key: PICPAY_WEBHOOK_TOKEN
+        sync: false
+      - key: PICPAY_SANDBOX
+        value: "false"
+      - key: PIX_CREDIT_RATE_BRL
+        value: "1"
