@@ -796,6 +796,14 @@ def retorno_checkout():
     return redirect("/")
 
 
+@app.post("/api/pushinpay/webhook")
+def webhook_pushinpay():
+    # Pushin Pay sends a POST test when validating the configured callback URL.
+    # This endpoint only acknowledges receipt; it does not credit a wallet or confirm a charge.
+    request.get_json(silent=True)
+    return jsonify({"ok": True}), 200
+
+
 @app.post("/api/infinitepay/webhook")
 def webhook_infinitepay():
     data = request.get_json(silent=True) or {}
