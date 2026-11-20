@@ -548,7 +548,12 @@ def meus_pedidos():
     if not user:
         return jsonify({"erro": "Entre na sua conta para ver os pedidos."}), 401
     pedidos = db.session.scalars(select(Pedido).join(DonoPedido, DonoPedido.pedido_id == Pedido.id).where(DonoPedido.usuario_id == user.id).order_by(Pedido.data_criacao.desc())).all()
-    remote_ids = {p.id: {"ID": p.referencia_api} for p in pedidos if p.referencia_api}
+    status_finalizado = {"Concluído", "Recusado", "Rejeitado", "Saldo devolvido"}
+    remote_ids = {
+        p.id: {"ID": p.referencia_api}
+        for p in pedidos
+        if p.referencia_api and p.status not in status_finalizado
+    }
     try:
         if remote_ids:
             payload = call_unlockclean("getimeiorderbulk", remote_ids)
