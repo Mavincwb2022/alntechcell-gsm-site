@@ -554,21 +554,44 @@ def meus_pedidos():
             payload = call_unlockclean("getimeiorderbulk", remote_ids)
             for pedido in pedidos:
                 item = payload.get(str(pedido.id), {}).get("SUCCESS", [])
-                if item:
-                    status = int(item[0].get("STATUS", 0))
-                    pedido.status = {4: "Concluído", 3: "Recusado", 1: "Em andamento", 0: "Aguardando"}.get(status, "Aguardando")
+                if item and isinstance(item[0], dict):
+                    resultado = item[0]
+                    try:
+                        status = int(resultado.get("STATUS", 0))
+                    except (TypeError, ValueError):
+                        status = 0
+                    pedido.status = {4: "Concluído", 3: "Recusado", 2: "Em andamento", 1: "Em andamento", 0: "Aguardando"}.get(status, "Aguardando")
+                    # Keep the latest supplier response so credentials/licenses survive refreshes.
+                    pedido.resposta_api = json.dumps(resultado, ensure_ascii=False)
             db.session.commit()
-    except ApiError:
+    except (ApiError, requests.RequestException):
         pass
-    return jsonify({"pedidos": [{
-        "id": p.id,
-        "tipo": p.tipo_servico or "—",
-        "quantidade": p.quantidade,
-        "valor_centavos": p.valor_centavos,
-        "servico": p.servico_nome,
-        "status": p.status,
-        "criado": p.data_criacao.isoformat(),
-    } for p in pedidos]})
+
+    saida = []
+    for p in pedidos:
+        resultado = {}
+        if p.resposta_api:
+            try:
+                armazenado = json.loads(p.resposta_api)
+                if isinstance(armazenado, dict):
+                    resultado = {
+                        key: str(armazenado.get(key)).strip()
+                        for key in ("CODE", "COMMENTS", "LOGIN", "USERNAME", "PASSWORD", "EMAIL", "PIN", "RESULT", "MESSAGE")
+                        if armazenado.get(key) not in (None, "", [])
+                    }
+            except (TypeError, json.JSONDecodeError):
+                pass
+        saida.append({
+            "id": p.id,
+            "tipo": p.tipo_servico or "—",
+            "quantidade": p.quantidade,
+            "valor_centavos": p.valor_centavos,
+            "servico": p.servico_nome,
+            "status": p.status,
+            "criado": p.data_criacao.isoformat(),
+            "resultado": resultado,
+        })
+    return jsonify({"pedidos": saida})
 
 
 @app.get("/health")
