@@ -55,7 +55,10 @@ class Pedido(db.Model):
     modelo_aparelho = db.Column(db.String(100), nullable=False)
     servico_id = db.Column(db.Integer, nullable=False)
     servico_nome = db.Column(db.String(180), nullable=False)
+    tipo_servico = db.Column(db.String(40), nullable=False, default="")
+    valor_centavos = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String(40), nullable=False, default="Enviando")
+    quantidade = db.Column(db.Integer, nullable=False, default=1)
     referencia_api = db.Column(db.String(80))
     resposta_api = db.Column(db.Text)
     data_criacao = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
@@ -91,9 +94,12 @@ class PagamentoPix(db.Model):
     checkout_slug = db.Column(db.String(120))
     transaction_nsu = db.Column(db.String(120))
     status = db.Column(db.String(40), nullable=False, default="PENDING")
+    tipo = db.Column(db.String(30), nullable=False, default="servico")
     valor_centavos = db.Column(db.Integer, nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False, default=1)
     servico_id = db.Column(db.Integer, nullable=False)
     servico_nome = db.Column(db.String(180), nullable=False)
+    tipo_servico = db.Column(db.String(40), nullable=False, default="")
     imei_sn = db.Column(db.String(80), nullable=False)
     modelo_aparelho = db.Column(db.String(100), nullable=False)
     campos_json = db.Column(db.Text, nullable=False, default="{}")
@@ -103,12 +109,40 @@ class PagamentoPix(db.Model):
     data_criacao = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+class Carteira(db.Model):
+    __tablename__ = "carteiras"
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False, unique=True, index=True)
+    saldo_centavos = db.Column(db.Integer, nullable=False, default=0)
+    total_recebido_centavos = db.Column(db.Integer, nullable=False, default=0)
+    data_atualizacao = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class LancamentoCarteira(db.Model):
+    __tablename__ = "lancamentos_carteira"
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False, index=True)
+    referencia = db.Column(db.String(160), nullable=False, unique=True, index=True)
+    tipo = db.Column(db.String(30), nullable=False)
+    valor_centavos = db.Column(db.Integer, nullable=False)
+    descricao = db.Column(db.String(200), nullable=False)
+    data_criacao = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 with app.app_context():
     db.create_all()
+    order_columns = {column["name"] for column in inspect(db.engine).get_columns("pedidos")}
+    for column_name, column_type in (("quantidade", "INTEGER NOT NULL DEFAULT 1"), ("tipo_servico", "VARCHAR(40) NOT NULL DEFAULT ''"), ("valor_centavos", "INTEGER NOT NULL DEFAULT 0")):
+        if column_name not in order_columns:
+            db.session.execute(text(f"ALTER TABLE pedidos ADD COLUMN {column_name} {column_type}"))
     payment_columns = {column["name"] for column in inspect(db.engine).get_columns("pagamentos_pix")}
-    for column_name, column_type in (("checkout_url", "TEXT"), ("checkout_slug", "VARCHAR(120)"), ("transaction_nsu", "VARCHAR(120)")):
+    for column_name, column_type in (("checkout_url", "TEXT"), ("checkout_slug", "VARCHAR(120)"), ("transaction_nsu", "VARCHAR(120)"), ("tipo", "VARCHAR(30) NOT NULL DEFAULT 'servico'"), ("quantidade", "INTEGER NOT NULL DEFAULT 1"), ("tipo_servico", "VARCHAR(40) NOT NULL DEFAULT ''")):
         if column_name not in payment_columns:
             db.session.execute(text(f"ALTER TABLE pagamentos_pix ADD COLUMN {column_name} {column_type}"))
+    for user_id in db.session.scalars(select(Usuario.id)):
+        wallet = db.session.scalar(select(Carteira.id).where(Carteira.usuario_id == user_id))
+        if wallet is None:
+            db.session.add(Carteira(usuario_id=user_id))
     db.session.commit()
 
 
@@ -256,6 +290,87 @@ def require_user(admin=False):
     return user
 
 
+def get_wallet(user_id, lock=False):
+    query = select(Carteira).where(Carteira.usuario_id == user_id)
+    if lock:
+        query = query.with_for_update()
+    wallet = db.session.scalar(query)
+    if wallet is None:
+        wallet = Carteira(usuario_id=user_id)
+        db.session.add(wallet)
+        db.session.flush()
+    return wallet
+
+
+def wallet_summary(user):
+    wallet = get_wallet(user.id)
+    orders = db.session.scalars(
+        select(Pedido).join(DonoPedido, DonoPedido.pedido_id == Pedido.id)
+        .where(DonoPedido.usuario_id == user.id)
+    ).all()
+    statuses = [str(order.status or "").casefold() for order in orders]
+    completed = {order.id for order, status in zip(orders, statuses) if "conclu" in status or "sucesso" in status or "devolvido" in status}
+    blocked_cents = sum(order.valor_centavos for order in orders if order.id not in completed and order.valor_centavos > 0)
+    return {
+        "saldo_centavos": wallet.saldo_centavos,
+        "bloqueado_centavos": blocked_cents,
+        "total_recebido_centavos": wallet.total_recebido_centavos,
+        "pedidos": {
+            "aguardando": sum("pendente" in s or "aguardando" in s for s in statuses),
+            "processando": sum("andamento" in s or "análise" in s or "enviando" in s for s in statuses),
+            "sucesso": sum("concluído" in s or "concluido" in s or "sucesso" in s for s in statuses),
+            "rejeitado": sum("recusado" in s or "rejeitado" in s for s in statuses),
+            "total": len(orders),
+        },
+    }
+
+
+def lancar_saldo(user_id, amount_cents, kind, reference, description, received=False):
+    wallet = get_wallet(user_id, lock=True)
+    if db.session.scalar(select(LancamentoCarteira.id).where(LancamentoCarteira.referencia == reference)):
+        return False
+    if wallet.saldo_centavos + amount_cents < 0:
+        return None
+    wallet.saldo_centavos += amount_cents
+    if received and amount_cents > 0:
+        wallet.total_recebido_centavos += amount_cents
+    wallet.data_atualizacao = datetime.now(timezone.utc)
+    db.session.add(LancamentoCarteira(
+        usuario_id=user_id,
+        referencia=reference,
+        tipo=kind,
+        valor_centavos=amount_cents,
+        descricao=description[:200],
+    ))
+    db.session.commit()
+    return True
+
+
+@app.get("/api/carteira")
+def resumo_carteira():
+    user = require_user()
+    if not user:
+        return jsonify({"erro": "Entre na sua conta para ver sua carteira."}), 401
+    return jsonify(wallet_summary(user))
+
+
+@app.get("/api/carteira/lancamentos")
+def lancamentos_carteira():
+    user = require_user()
+    if not user:
+        return jsonify({"erro": "Entre na sua conta para ver sua carteira."}), 401
+    entries = db.session.scalars(
+        select(LancamentoCarteira).where(LancamentoCarteira.usuario_id == user.id)
+        .order_by(LancamentoCarteira.data_criacao.desc()).limit(50)
+    ).all()
+    return jsonify({"lancamentos": [{
+        "tipo": row.tipo,
+        "valor_centavos": row.valor_centavos,
+        "descricao": row.descricao,
+        "criado": row.data_criacao.isoformat(),
+    } for row in entries]})
+
+
 @app.get("/admin/setup")
 def admin_setup_page():
     if not os.getenv("ADMIN_SETUP_TOKEN"):
@@ -281,6 +396,8 @@ def registrar_usuario():
     user = Usuario(nome=nome, email=email, whatsapp=whatsapp, senha_hash=generate_password_hash(senha))
     db.session.add(user)
     try:
+        db.session.flush()
+        db.session.add(Carteira(usuario_id=user.id))
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -343,6 +460,8 @@ def criar_conta_admin():
         user = Usuario(nome="Administrador", email=admin_email, whatsapp="admin-" + secrets.token_hex(4), senha_hash=generate_password_hash(senha), papel="admin")
         db.session.add(user)
     db.session.commit()
+    get_wallet(user.id)
+    db.session.commit()
     session.clear()
     session["user_id"] = user.id
     session.permanent = True
@@ -357,6 +476,13 @@ def painel_admin():
     return render_template("admin.html")
 
 
+@app.get("/minha-conta/pedidos")
+def pagina_historico_pedidos():
+    if not require_user():
+        return redirect("/?entrar=1")
+    return render_template("orders.html")
+
+
 @app.get("/api/admin/resumo")
 def resumo_admin():
     user = require_user(admin=True)
@@ -365,9 +491,39 @@ def resumo_admin():
     users = db.session.scalars(select(Usuario).order_by(Usuario.data_criacao.desc())).all()
     orders = db.session.scalars(select(Pedido).order_by(Pedido.data_criacao.desc()).limit(250)).all()
     return jsonify({
-        "usuarios": [{"nome": u.nome, "email": u.email, "whatsapp": u.whatsapp, "papel": u.papel, "ativo": u.ativo} for u in users],
-        "pedidos": [{"id": p.id, "nome": p.cliente.nome, "whatsapp": p.cliente.whatsapp, "modelo": p.modelo_aparelho, "servico": p.servico_nome, "status": p.status, "criado": p.data_criacao.isoformat()} for p in orders],
+        "usuarios": [{"id": u.id, "nome": u.nome, "email": u.email, "whatsapp": u.whatsapp, "saldo_centavos": get_wallet(u.id).saldo_centavos, "papel": u.papel, "ativo": u.ativo} for u in users],
+        "pedidos": [{"id": p.id, "nome": p.cliente.nome, "whatsapp": p.cliente.whatsapp, "tipo": p.tipo_servico or "—", "quantidade": p.quantidade, "valor_centavos": p.valor_centavos, "servico": p.servico_nome, "status": p.status, "criado": p.data_criacao.isoformat()} for p in orders],
     })
+
+
+@app.post("/api/admin/pedidos/<int:order_id>/estornar")
+def estornar_pedido_admin(order_id):
+    admin = require_user(admin=True)
+    if not admin:
+        return jsonify({"erro": "Acesso restrito à administração."}), 401
+    order = db.session.get(Pedido, order_id)
+    if not order:
+        return jsonify({"erro": "Pedido não encontrado."}), 404
+    if order.status not in ("Em análise", "Recusado", "Rejeitado"):
+        return jsonify({"erro": "O estorno manual só está disponível para pedidos em análise ou recusados."}), 409
+    owner = db.session.scalar(select(DonoPedido).where(DonoPedido.pedido_id == order.id))
+    debit = db.session.scalar(select(LancamentoCarteira).where(LancamentoCarteira.referencia == f"pedido:{order.id}"))
+    if not owner or not debit or debit.valor_centavos >= 0:
+        return jsonify({"erro": "Não há débito de carteira para estornar neste pedido."}), 409
+    refund_ref = f"estorno-pedido:{order.id}"
+    if not db.session.scalar(select(LancamentoCarteira.id).where(LancamentoCarteira.referencia == refund_ref)):
+        applied = lancar_saldo(
+            owner.usuario_id,
+            -debit.valor_centavos,
+            "estorno",
+            refund_ref,
+            f"Devolução do pedido #{order.id}",
+        )
+        if applied is None:
+            return jsonify({"erro": "Não foi possível devolver o saldo."}), 409
+    order.status = "Saldo devolvido"
+    db.session.commit()
+    return jsonify({"ok": True, "pedido_id": order.id, "valor_centavos": -debit.valor_centavos})
 
 
 @app.get("/api/minha-conta/pedidos")
@@ -388,7 +544,15 @@ def meus_pedidos():
             db.session.commit()
     except ApiError:
         pass
-    return jsonify({"pedidos": [{"id": p.id, "modelo": p.modelo_aparelho, "servico": p.servico_nome, "status": p.status, "criado": p.data_criacao.isoformat()} for p in pedidos]})
+    return jsonify({"pedidos": [{
+        "id": p.id,
+        "tipo": p.tipo_servico or "—",
+        "quantidade": p.quantidade,
+        "valor_centavos": p.valor_centavos,
+        "servico": p.servico_nome,
+        "status": p.status,
+        "criado": p.data_criacao.isoformat(),
+    } for p in pedidos]})
 
 
 @app.get("/health")
@@ -438,6 +602,9 @@ def enviar_pedido_apos_pagamento(payment):
         pedido = Pedido(
             imei_sn=payment.imei_sn,
             modelo_aparelho=payment.modelo_aparelho,
+            quantidade=payment.quantidade,
+            tipo_servico=payment.tipo_servico,
+            valor_centavos=payment.valor_centavos,
             servico_id=payment.servico_id,
             servico_nome=payment.servico_nome[:180],
             status="Pagamento confirmado; enviando",
@@ -454,7 +621,7 @@ def enviar_pedido_apos_pagamento(payment):
     parameters = {
         str(pedido.id): {
             "ID": int(payment.servico_id),
-            "QNT": 1,
+            "QNT": payment.quantidade,
             "CUSTOMFIELD": base64.b64encode(json.dumps(custom_fields, ensure_ascii=False).encode("utf-8")).decode("ascii"),
         }
     }
@@ -492,46 +659,56 @@ def confirmar_cobranca_infinitepay(payment):
     if payment.status not in ("PAID", "PROCESSING"):
         payment.status = "PAID_CONFIRMED"
         db.session.commit()
+    if payment.tipo == "recarga":
+        if payment.status != "PAID":
+            applied = lancar_saldo(
+                payment.usuario_id,
+                payment.valor_centavos,
+                "recarga",
+                f"topup:{payment.merchant_charge_id}",
+                "Recarga via InfinitePay",
+                received=True,
+            )
+            if applied is None:
+                return False
+            payment.status = "PAID"
+            db.session.commit()
+        return True
     enviar_pedido_apos_pagamento(payment)
     return payment.status == "PAID"
 
 
-@app.post("/api/pagamentos/pix")
-def criar_cobranca_pix():
+@app.post("/api/carteira/adicionar-saldo")
+def criar_recarga_carteira():
     user = require_user()
     if not user:
-        return jsonify({"erro": "Entre na sua conta para pagar com Pix."}), 401
+        return jsonify({"erro": "Entre na sua conta para adicionar saldo."}), 401
     data = request.get_json(silent=True) or {}
-    if data.get("autorizado") is not True:
-        return jsonify({"erro": "Confirme que é proprietário do aparelho ou tem autorização expressa."}), 400
     try:
+        amount = Decimal(str(data.get("valor", ""))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        amount_cents = int(amount * 100)
         handle = infinitepay_handle()
         infinitepay_headers()
-        catalog = get_catalog()
-        service = next((s for s in catalog["services"] if s["id"] == str(data.get("servico_id", ""))), None)
-        if not service:
-            return jsonify({"erro": "Serviço não encontrado. Atualize o catálogo."}), 400
-        rate = pix_credit_rate()
-        price = Decimal(str(service.get("price", "")))
-        amount = int((price * rate * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-        if amount < 100:
-            return jsonify({"erro": "Este serviço não tem valor Pix válido. Escolha outro serviço ou fale com o suporte."}), 400
-    except (ApiError, InvalidOperation, ValueError) as exc:
-        return jsonify({"erro": str(exc)}), 400
+    except (ApiError, InvalidOperation, ValueError):
+        return jsonify({"erro": "Informe um valor válido para a recarga."}), 400
+    if amount_cents < 500 or amount_cents > 1_000_000:
+        return jsonify({"erro": "A recarga deve ser entre R$ 5,00 e R$ 10.000,00."}), 400
+
     charge_id = str(uuid.uuid4())
     payment = PagamentoPix(
         usuario_id=user.id,
         merchant_charge_id=charge_id,
         status="CREATING",
-        valor_centavos=amount,
-        servico_id=int(service["id"]),
-        servico_nome=service["name"][:180],
-        imei_sn=str(data.get("imei_sn", "")).strip()[:80],
-        modelo_aparelho=str(data.get("modelo", "")).strip()[:100],
-        campos_json=json.dumps(data.get("campos") if isinstance(data.get("campos"), dict) else {}, ensure_ascii=False),
+        tipo="recarga",
+        valor_centavos=amount_cents,
+        quantidade=1,
+        servico_id=0,
+        servico_nome="Recarga de saldo",
+        tipo_servico="CARTEIRA",
+        imei_sn="",
+        modelo_aparelho="",
+        campos_json="{}",
     )
-    if not payment.imei_sn or not payment.modelo_aparelho:
-        return jsonify({"erro": "Informe modelo e IMEI/número de série."}), 400
     db.session.add(payment)
     db.session.commit()
     from datetime import timedelta
@@ -539,7 +716,7 @@ def criar_cobranca_pix():
     site_url = os.getenv("PUBLIC_BASE_URL", "https://alntechcell-gsm-site.onrender.com").rstrip("/")
     payload = {
         "handle": handle,
-        "items": [{"description": payment.servico_nome, "price": amount, "quantity": 1}],
+        "items": [{"description": payment.servico_nome, "price": amount_cents, "quantity": 1}],
         "order_nsu": charge_id,
         "redirect_url": f"{site_url}/checkout/retorno",
         "webhook_url": f"{site_url}/api/infinitepay/webhook",
@@ -566,6 +743,11 @@ def criar_cobranca_pix():
     }), 201
 
 
+@app.post("/api/pagamentos/pix")
+def criar_cobranca_pix():
+    return jsonify({"erro": "Adicione saldo na carteira e envie o pedido usando o saldo disponível."}), 410
+
+
 @app.get("/api/pagamentos/<int:payment_id>")
 def status_pagamento(payment_id):
     user = require_user()
@@ -579,7 +761,7 @@ def status_pagamento(payment_id):
             confirmar_cobranca_infinitepay(payment)
         except ApiError as exc:
             app.logger.warning("Consulta InfinitePay não disponível para pagamento %s: %s", payment.id, exc)
-    return jsonify({"status": payment.status, "pedido_id": payment.pedido_id, "valor_centavos": payment.valor_centavos})
+    return jsonify({"status": payment.status, "tipo": payment.tipo, "pedido_id": payment.pedido_id, "valor_centavos": payment.valor_centavos})
 
 
 @app.get("/checkout/retorno")
@@ -619,44 +801,118 @@ def webhook_infinitepay():
 
 @app.post("/api/pedidos")
 def criar_pedido():
-    return jsonify({"erro": "Os pedidos agora são enviados após a confirmação do Pix. Use a opção 'Gerar Pix' no catálogo."}), 410
+    user = require_user()
+    if not user:
+        return jsonify({"erro": "Entre na sua conta para enviar um pedido."}), 401
+    data = request.get_json(silent=True) or {}
+    service_id = str(data.get("servico_id", "")).strip()
+    try:
+        quantity = int(data.get("quantidade", 0))
+    except (TypeError, ValueError):
+        quantity = 0
+    if not service_id or quantity < 1 or quantity > 1000:
+        return jsonify({"erro": "Escolha um serviço e informe uma quantidade entre 1 e 1.000."}), 400
+    try:
+        catalog = get_catalog()
+        service = next((item for item in catalog["services"] if item["id"] == service_id), None)
+        if not service:
+            return jsonify({"erro": "Serviço não encontrado. Atualize o catálogo."}), 400
+        rate = pix_credit_rate()
+        unit_price = Decimal(str(service.get("price", ""))) * rate
+        amount_cents = int((unit_price * quantity * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        if amount_cents < 1 or amount_cents > 100_000_000:
+            return jsonify({"erro": "O valor deste pedido está fora do limite permitido."}), 400
+    except (ApiError, InvalidOperation, ValueError) as exc:
+        return jsonify({"erro": str(exc)}), 502
+
+    wallet = get_wallet(user.id, lock=True)
+    if wallet.saldo_centavos < amount_cents:
+        available = wallet.saldo_centavos
+        db.session.rollback()
+        return jsonify({
+            "erro": "Saldo insuficiente. Adicione saldo à sua carteira para concluir o pedido.",
+            "saldo_centavos": available,
+            "valor_centavos": amount_cents,
+        }), 402
+    cliente = db.session.scalar(select(Cliente).where(Cliente.whatsapp == user.whatsapp))
+    if cliente is None:
+        cliente = Cliente(nome=user.nome[:100], whatsapp=user.whatsapp[:30])
+        db.session.add(cliente)
+        db.session.flush()
+    order = Pedido(
+        imei_sn="",
+        modelo_aparelho="",
+        quantidade=quantity,
+        tipo_servico=str(service.get("type", ""))[:40],
+        valor_centavos=amount_cents,
+        servico_id=int(service["id"]),
+        servico_nome=service["name"][:180],
+        status="Enviando",
+        cliente_id=cliente.id,
+    )
+    db.session.add(order)
+    db.session.flush()
+    db.session.add(DonoPedido(pedido_id=order.id, usuario_id=user.id))
+    wallet.saldo_centavos -= amount_cents
+    wallet.data_atualizacao = datetime.now(timezone.utc)
+    db.session.add(LancamentoCarteira(
+        usuario_id=user.id,
+        referencia=f"pedido:{order.id}",
+        tipo="pedido",
+        valor_centavos=-amount_cents,
+        descricao=f"Pedido #{order.id} · {service['name']} · {quantity} un.",
+    ))
+    db.session.commit()
+
+    parameters = {
+        str(order.id): {
+            "ID": int(service["id"]),
+            "QNT": quantity,
+            "CUSTOMFIELD": base64.b64encode(b"{}").decode("ascii"),
+        }
+    }
+    try:
+        payload = call_unlockclean("placebulkorder", parameters)
+        result = (payload.get("SUCCESS") or {}).get(str(order.id), {})
+        if result.get("status") != "success":
+            raise ApiError(result.get("message", "O fornecedor não confirmou o processamento."))
+    except ApiError as exc:
+        order.status = "Em análise"
+        order.resposta_api = str(exc)[:1000]
+        db.session.commit()
+        app.logger.warning("Pedido %s aguarda análise do suporte.", order.id)
+        return jsonify({
+            "pedido_id": order.id,
+            "status": order.status,
+            "aviso": "O saldo foi reservado e o pedido está em análise. Consulte o painel ou fale com o suporte.",
+            "carteira": wallet_summary(user),
+        }), 202
+    order.referencia_api = str(result.get("referenceid", "")) or None
+    order.status = "Pendente"
+    order.resposta_api = json.dumps(result, ensure_ascii=False)
+    db.session.commit()
+    return jsonify({
+        "pedido_id": order.id,
+        "status": order.status,
+        "valor_centavos": amount_cents,
+        "carteira": wallet_summary(user),
+    }), 201
 
 
 @app.post("/api/pedidos/consultar")
 def consultar_pedidos():
-    data = request.get_json(silent=True) or {}
     user = require_user()
     if not user:
         return jsonify({"mensagem": "Entre na sua conta para consultar pedidos."}), 401
-    imei_sn = str(data.get("imei_sn", "")).strip()
-    if not imei_sn:
-        return jsonify({"mensagem": "Informe o IMEI/serial do aparelho."}), 400
-
     pedidos = db.session.scalars(
-        select(Pedido).join(DonoPedido, DonoPedido.pedido_id == Pedido.id).where(
-            Pedido.imei_sn == imei_sn, DonoPedido.usuario_id == user.id
-        ).order_by(Pedido.data_criacao.desc())
+        select(Pedido).join(DonoPedido, DonoPedido.pedido_id == Pedido.id)
+        .where(DonoPedido.usuario_id == user.id).order_by(Pedido.data_criacao.desc()).limit(250)
     ).all()
-    if not pedidos:
-        return jsonify({"mensagem": "Nenhum pedido encontrado com esses dados."}), 404
-
-    remote_ids = {p.id: {"ID": p.referencia_api} for p in pedidos if p.referencia_api}
-    try:
-        if remote_ids:
-            payload = call_unlockclean("getimeiorderbulk", remote_ids)
-            for pedido in pedidos:
-                item = payload.get(str(pedido.id), {}).get("SUCCESS", [])
-                if item:
-                    status = int(item[0].get("STATUS", 0))
-                    pedido.status = {4: "Concluído", 3: "Recusado", 1: "Em andamento", 0: "Aguardando"}.get(status, "Aguardando")
-            db.session.commit()
-    except ApiError as exc:
-        app.logger.warning("Consulta remota indisponível: %s", exc)
-
-    return jsonify({"pedidos": [
-        {"id": p.id, "modelo": p.modelo_aparelho, "servico": p.servico_nome, "status": p.status}
-        for p in pedidos
-    ]})
+    return jsonify({"pedidos": [{
+        "id": p.id, "tipo": p.tipo_servico or "—", "quantidade": p.quantidade,
+        "valor_centavos": p.valor_centavos, "servico": p.servico_nome,
+        "status": p.status, "criado": p.data_criacao.isoformat(),
+    } for p in pedidos]})
 
 
 if __name__ == "__main__":
