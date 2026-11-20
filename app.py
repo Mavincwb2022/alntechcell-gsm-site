@@ -71,6 +71,11 @@ class Usuario(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(254), nullable=False, unique=True, index=True)
     whatsapp = db.Column(db.String(30), nullable=False, unique=True, index=True)
+    moeda = db.Column(db.String(3), nullable=False, default="BRL")
+    pais = db.Column(db.String(100), nullable=True)
+    cidade = db.Column(db.String(100), nullable=True)
+    endereco = db.Column(db.String(255), nullable=True)
+    termos_aceitos_em = db.Column(db.DateTime, nullable=True)
     senha_hash = db.Column(db.String(255), nullable=False)
     papel = db.Column(db.String(20), nullable=False, default="usuario")
     ativo = db.Column(db.Boolean, nullable=False, default=True)
@@ -131,6 +136,10 @@ class LancamentoCarteira(db.Model):
 
 with app.app_context():
     db.create_all()
+    user_columns = {column["name"] for column in inspect(db.engine).get_columns("usuarios")}
+    for column_name, column_type in (("moeda", "VARCHAR(3) NOT NULL DEFAULT 'BRL'"), ("pais", "VARCHAR(100)"), ("cidade", "VARCHAR(100)"), ("endereco", "VARCHAR(255)"), ("termos_aceitos_em", "TIMESTAMP")):
+        if column_name not in user_columns:
+            db.session.execute(text(f"ALTER TABLE usuarios ADD COLUMN {column_name} {column_type}"))
     order_columns = {column["name"] for column in inspect(db.engine).get_columns("pedidos")}
     for column_name, column_type in (("quantidade", "INTEGER NOT NULL DEFAULT 1"), ("tipo_servico", "VARCHAR(40) NOT NULL DEFAULT ''"), ("valor_centavos", "INTEGER NOT NULL DEFAULT 0")):
         if column_name not in order_columns:
@@ -386,14 +395,23 @@ def registrar_usuario():
     nome = str(data.get("nome", "")).strip()[:100]
     email = str(data.get("email", "")).strip().lower()[:254]
     whatsapp = re.sub(r"[^0-9+]", "", str(data.get("whatsapp", "")))[:30]
+    moeda = str(data.get("moeda", "")).strip().upper()[:3]
+    pais = str(data.get("pais", "")).strip()[:100]
+    cidade = str(data.get("cidade", "")).strip()[:100]
+    endereco = str(data.get("endereco", "")).strip()[:255]
     senha = str(data.get("senha", ""))
+    aceitou_termos = data.get("aceitou_termos") is True
     if not nome or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(whatsapp) < 8:
-        return jsonify({"erro": "Informe nome, e-mail válido e WhatsApp."}), 400
-    if len(senha) < 12:
-        return jsonify({"erro": "Use uma senha com pelo menos 12 caracteres."}), 400
+        return jsonify({"erro": "Informe nome, e-mail válido e número de celular."}), 400
+    if moeda not in {"BRL", "USD", "EUR"} or not pais or not cidade or not endereco:
+        return jsonify({"erro": "Informe moeda, país, cidade e endereço."}), 400
+    if not aceitou_termos:
+        return jsonify({"erro": "Aceite os termos de uso para criar sua conta."}), 400
+    if len(senha) < 12 or not re.search(r"[a-z]", senha) or not re.search(r"[A-Z]", senha) or not re.search(r"[^A-Za-z0-9]", senha):
+        return jsonify({"erro": "Use uma senha com 12 caracteres, letras minúsculas e maiúsculas e um caractere especial."}), 400
     if db.session.scalar(select(Usuario.id).where((Usuario.email == email) | (Usuario.whatsapp == whatsapp))):
         return jsonify({"erro": "Já existe uma conta com esse e-mail ou WhatsApp."}), 409
-    user = Usuario(nome=nome, email=email, whatsapp=whatsapp, senha_hash=generate_password_hash(senha))
+    user = Usuario(nome=nome, email=email, whatsapp=whatsapp, moeda=moeda, pais=pais, cidade=cidade, endereco=endereco, termos_aceitos_em=datetime.now(timezone.utc), senha_hash=generate_password_hash(senha))
     db.session.add(user)
     try:
         db.session.flush()
@@ -869,6 +887,36 @@ def criar_pedido():
         service = next((item for item in catalog["services"] if item["id"] == service_id), None)
         if not service:
             return jsonify({"erro": "Serviço não encontrado. Atualize o catálogo."}), 400
+        raw_fields = service.get("custom") or []
+        if isinstance(raw_fields, dict):
+            raw_fields = list(raw_fields.values())
+        expected_fields = {}
+        for field in raw_fields if isinstance(raw_fields, list) else []:
+            if not isinstance(field, dict):
+                continue
+            field_name = str(field.get("fieldname", "")).strip()
+            if field_name:
+                expected_fields[field_name] = str(field.get("required", "")).lower() in {"on", "1", "true", "yes"}
+        imei_meta = service.get("custom_imei") or {}
+        imei_name = str(imei_meta.get("customname", "")).strip() if isinstance(imei_meta, dict) else ""
+        if isinstance(imei_meta, dict) and str(imei_meta.get("allow", "")).lower() in {"1", "on", "true", "yes"} and imei_name:
+            expected_fields.setdefault(imei_name, True)
+        submitted_fields = data.get("custom_fields", {})
+        if not isinstance(submitted_fields, dict):
+            return jsonify({"erro": "Informe os dados solicitados para este serviço."}), 400
+        normalized_fields = {}
+        for field_name, value in submitted_fields.items():
+            name = str(field_name).strip()
+            if name not in expected_fields:
+                return jsonify({"erro": "Um dos campos informados não pertence a este serviço."}), 400
+            value = str(value or "").strip()
+            if len(value) > 300:
+                return jsonify({"erro": f"O campo {name} excede o limite de 300 caracteres."}), 400
+            if value:
+                normalized_fields[name] = value
+        missing_fields = [name for name, required in expected_fields.items() if required and not normalized_fields.get(name)]
+        if missing_fields:
+            return jsonify({"erro": "Preencha os campos obrigatórios: " + ", ".join(missing_fields) + "."}), 400
         rate = pix_credit_rate()
         unit_price = Decimal(str(service.get("price", ""))) * rate
         amount_cents = int((unit_price * quantity * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -920,7 +968,7 @@ def criar_pedido():
         str(order.id): {
             "ID": int(service["id"]),
             "QNT": quantity,
-            "CUSTOMFIELD": base64.b64encode(b"{}").decode("ascii"),
+            "CUSTOMFIELD": base64.b64encode(json.dumps(normalized_fields, ensure_ascii=False).encode("utf-8")).decode("ascii"),
         }
     }
     try:
