@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 500" role="img" aria-labelledby="title desc">
+<title id="title">Leãozinho azul da ALNTECHCELLPRO</title><desc id="desc">Mascote leão azul em pé, usando jaqueta preta e tênis escuros.</desc>
+<defs>
+ <linearGradient id="mane" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#29b9ff"/><stop offset=".46" stop-color="#0875f5"/><stop offset="1" stop-color="#043a9c"/></linearGradient>
+ <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4acbff"/><stop offset=".56" stop-color="#1688ff"/><stop offset="1" stop-color="#0753c7"/></linearGradient>
+ <linearGradient id="jacket" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#222a3a"/><stop offset=".48" stop-color="#070b13"/><stop offset="1" stop-color="#151c2b"/></linearGradient>
+ <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.5"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#06142b" flood-opacity=".25"/></filter>
+</defs>
+<ellipse cx="181" cy="474" rx="107" ry="15" fill="#0a1b36" opacity=".18"/>
+<path d="M281 342c49 10 62 43 42 65-16 17-42 5-52-8 24 5 32-9 24-19-9-11-29-6-39-7" fill="none" stroke="url(#fur)" stroke-width="20" stroke-linecap="round"/>
+<path d="M118 366c-8 30-5 62 0 81h53l9-76m28-2c2 30 7 53 16 78h51c-4-34-13-59-17-88" fill="url(#fur)" stroke="#0649b5" stroke-width="4"/>
+<path d="M111 437c-28 0-42 13-42 30 0 9 8 13 20 13h86c8-16-1-31-21-43zM229 437c-22 4-26 22-18 43h90c17 0 22-9 16-19-10-16-29-24-55-24z" fill="#111722" stroke="#050912" stroke-width="5"/>
+<path d="m94 459 43 1m93 2 43 1" stroke="#168bff" stroke-width="7" stroke-linecap="round"/><path d="m127 450 12 14m110-11 13 14" stroke="#eaf5ff" stroke-width="5" stroke-linecap="round"/>
+<g filter="url(#shadow)">
+ <path d="M103 183c-28-24-39-59-22-89 14-25 40-29 60-15 8-39 41-67 78-66 41 1 71 25 81 63 24-9 48 6 54 32 8 34-7 62-30 78 11 21 11 46-1 69-14 29-45 43-74 38-23 22-61 26-90 10-35 6-66-12-77-42-9-24-2-57 21-78z" fill="url(#mane)" stroke="#063a94" stroke-width="7"/>
+ <path d="M113 64c-20-25-48-18-51 5-2 14 9 31 25 36m177-41c20-25 48-16 50 8 1 14-10 29-26 33" fill="#1177ed" stroke="#0743a5" stroke-width="6"/>
+ <path d="M100 99c19-23 39-36 58-44m-52 69c22-18 40-26 57-31m-39 63c21-15 43-22 60-22m89-79c-18-22-38-34-58-42m70 72c-21-17-40-25-58-29m48 68c-20-14-40-20-58-19" fill="none" stroke="#8ee8ff" stroke-width="6" stroke-linecap="round" opacity=".6"/>
+ <path d="M110 101c0-19 16-34 34-34s32 15 32 34m42 0c0-19 15-34 33-34s33 15 33 34" fill="#f4a8b9" stroke="#063c94" stroke-width="6"/>
+ <path d="M96 134c5-34 37-53 83-51 16-19 51-22 74-8 26 16 37 47 28 79l-8 41c-7 37-39 62-79 62-44 0-77-27-84-65z" fill="url(#fur)" stroke="#0744a7" stroke-width="6"/>
+ <path d="M126 139c14-11 29-13 43-6m30 0c14-8 30-6 43 6" fill="none" stroke="#053f9f" stroke-width="11" stroke-linecap="round"/>
+ <ellipse cx="150" cy="165" rx="19" ry="24" fill="#fff"/><ellipse cx="224" cy="165" rx="19" ry="24" fill="#fff"/>
+ <ellipse cx="154" cy="169" rx="10" ry="15" fill="#081329"/><ellipse cx="220" cy="169" rx="10" ry="15" fill="#081329"/>
+ <circle cx="158" cy="162" r="5" fill="#fff"/><circle cx="224" cy="162" r="5" fill="#fff"/>
+ <path d="M166 195c-4 20-28 18-41 25-13 7-13 20-3 28 18 13 42 12 57 1 11-8 18-15 18-15s8 8 19 15c15 10 40 11 57-2 10-8 8-21-6-27-14-6-35-5-41-25-17-10-41-10-60 0z" fill="#f0f5ff" stroke="#0d5cc8" stroke-width="4"/>
+ <path d="m174 202 21-8 22 8-22 20z" fill="#101827" stroke="#030b19" stroke-width="3"/><path d="M195 221c-2 15-13 22-27 17" fill="none" stroke="#10213c" stroke-width="4" stroke-linecap="round"/><path d="M196 221c3 15 14 22 28 17" fill="none" stroke="#10213c" stroke-width="4" stroke-linecap="round"/>
+</g>
+<path d="M133 262c-31 9-47 31-47 67v66c0 14 10 24 24 24h165c15 0 24-10 24-25v-66c0-35-17-57-48-66l-20-6h-76z" fill="url(#jacket)" stroke="#030710" stroke-width="7"/>
+<path d="m151 258 43 36 44-36-16-11h-55z" fill="#070b12" stroke="#343e50" stroke-width="4"/>
+<path d="m194 295-1 122" stroke="#168bff" stroke-width="7"/><path d="m183 302 21 0m-21 17 21 0m-21 17 21 0m-21 17 21 0" stroke="#8996a9" stroke-width="3"/>
+<path d="M143 277c-24 17-38 41-43 74m197 0c-4-32-19-56-42-74" fill="none" stroke="#303a4e" stroke-width="5"/>
+<path d="M161 327h59" stroke="#2d3a50" stroke-width="2"/>
+<circle cx="231" cy="330" r="17" fill="#0b1321" stroke="#46546b" stroke-width="2"/><path d="m230 317 4 10 10 1-8 6 2 10-8-6-9 6 3-10-8-6 10-1z" fill="#16a4ff"/>
+<path d="M112 300c-15 10-24 27-29 44l-16 34c-6 12-3 24 8 28 12 4 21-6 28-17l26-39m174-50c16 11 25 29 27 45l10 34c4 13-2 24-14 26-12 2-19-9-24-21l-20-42" fill="url(#fur)" stroke="#0751bc" stroke-width="6" stroke-linecap="round"/>
+<path d="M71 377c-9-4-18 2-18 12 0 18 22 33 43 36 14 2 22-8 18-19-5-13-26-22-43-29zm238-3c12-5 21 3 18 15-4 16-22 28-40 31-14 2-23-8-18-19 5-12 24-21 40-27z" fill="url(#fur)" stroke="#0751bc" stroke-width="5"/>
+</svg>
