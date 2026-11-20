@@ -24,13 +24,9 @@ services:
         value: alntechunlocker@gmail.com
       - key: ADMIN_SETUP_TOKEN
         generateValue: true
-      - key: PICPAY_CLIENT_ID
+      - key: INFINITEPAY_API_KEY
         sync: false
-      - key: PICPAY_CLIENT_SECRET
+      - key: INFINITEPAY_HANDLE
         sync: false
-      - key: PICPAY_WEBHOOK_TOKEN
-        sync: false
-      - key: PICPAY_SANDBOX
-        value: "false"
       - key: PIX_CREDIT_RATE_BRL
-        value: "1"
+        value: "1.70"

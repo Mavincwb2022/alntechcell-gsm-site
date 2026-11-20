@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 from functools import wraps
 
 import requests
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, redirect, render_template, request, session
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -87,6 +87,9 @@ class PagamentoPix(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False, index=True)
     merchant_charge_id = db.Column(db.String(36), nullable=False, unique=True, index=True)
     picpay_id = db.Column(db.String(80))
+    checkout_url = db.Column(db.Text)
+    checkout_slug = db.Column(db.String(120))
+    transaction_nsu = db.Column(db.String(120))
     status = db.Column(db.String(40), nullable=False, default="PENDING")
     valor_centavos = db.Column(db.Integer, nullable=False)
     servico_id = db.Column(db.Integer, nullable=False)
@@ -102,6 +105,11 @@ class PagamentoPix(db.Model):
 
 with app.app_context():
     db.create_all()
+    payment_columns = {column["name"] for column in inspect(db.engine).get_columns("pagamentos_pix")}
+    for column_name, column_type in (("checkout_url", "TEXT"), ("checkout_slug", "VARCHAR(120)"), ("transaction_nsu", "VARCHAR(120)")):
+        if column_name not in payment_columns:
+            db.session.execute(text(f"ALTER TABLE pagamentos_pix ADD COLUMN {column_name} {column_type}"))
+    db.session.commit()
 
 
 class ApiError(Exception):
@@ -186,62 +194,49 @@ def _parse_catalog(payload):
 
 _catalog_cache = {"at": 0.0, "value": None}
 _catalog_lock = threading.Lock()
-_picpay_token_cache = {"value": "", "expires_at": 0.0}
-_picpay_token_lock = threading.Lock()
+INFINITEPAY_API_URL = "https://api.checkout.infinitepay.io"
 
 
-def picpay_base_url():
-    if os.getenv("PICPAY_SANDBOX", "false").lower() == "true":
-        return "https://ecommerce-api.svcp.ppay.me"
-    return "https://ecommerce-api.svcp.picpay.com"
-
-
-def picpay_access_token():
-    client_id = os.getenv("PICPAY_CLIENT_ID", "")
-    client_secret = os.getenv("PICPAY_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        raise ApiError("Configure PICPAY_CLIENT_ID e PICPAY_CLIENT_SECRET como secrets no Render.")
-    with _picpay_token_lock:
-        if _picpay_token_cache["value"] and time.monotonic() < _picpay_token_cache["expires_at"]:
-            return _picpay_token_cache["value"]
-        try:
-            response = requests.post(
-                f"{picpay_base_url()}/oauth2/token",
-                json={"grant_type": "client_credentials", "client_id": client_id, "client_secret": client_secret},
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
-                timeout=(10, 25),
-            )
-            response.raise_for_status()
-            result = response.json()
-            token = result.get("access_token")
-            if not token:
-                raise ApiError("O PicPay não retornou um token de acesso.")
-            _picpay_token_cache.update(value=token, expires_at=time.monotonic() + min(int(result.get("expires_in", 300)), 270))
-            return token
-        except (requests.RequestException, ValueError) as exc:
-            raise ApiError("Não foi possível autenticar na API Pix PicPay.") from exc
-
-
-def picpay_request(method, path, **kwargs):
-    token = picpay_access_token()
-    headers = kwargs.pop("headers", {})
-    headers.update({"Authorization": f"Bearer {token}", "Accept": "application/json", "Content-Type": "application/json"})
+def pix_credit_rate():
     try:
-        response = requests.request(method, f"{picpay_base_url()}{path}", headers=headers, timeout=(10, 30), **kwargs)
+        rate = Decimal(os.getenv("PIX_CREDIT_RATE_BRL", "1.70"))
+    except InvalidOperation as exc:
+        raise ApiError("PIX_CREDIT_RATE_BRL precisa ser um valor numérico positivo.") from exc
+    if not rate.is_finite() or rate <= 0:
+        raise ApiError("PIX_CREDIT_RATE_BRL precisa ser um valor numérico positivo.")
+    return rate
+
+
+def infinitepay_headers():
+    api_key = os.getenv("INFINITEPAY_API_KEY", "").strip()
+    if not api_key:
+        raise ApiError("Configure INFINITEPAY_API_KEY como segredo no Render.")
+    return {"X-Api-Key": api_key, "Accept": "application/json", "Content-Type": "application/json"}
+
+
+def infinitepay_handle():
+    handle = os.getenv("INFINITEPAY_HANDLE", "").strip().lstrip("$")
+    if not handle:
+        raise ApiError("Configure INFINITEPAY_HANDLE no Render com sua InfiniteTag, sem o $.")
+    return handle
+
+
+def infinitepay_request(path, payload):
+    try:
+        response = requests.post(
+            f"{INFINITEPAY_API_URL}{path}", json=payload,
+            headers=infinitepay_headers(), timeout=(10, 30),
+        )
         response.raise_for_status()
-        return response.json() if response.content else {}
-    except (requests.RequestException, ValueError) as exc:
-        app.logger.warning("Falha na API Pix PicPay (%s).", method)
-        raise ApiError("O PicPay não concluiu a solicitação Pix. Tente novamente ou contate o suporte.") from exc
-
-
-def picpay_phone(whatsapp):
-    digits = re.sub(r"\D", "", whatsapp)
-    if digits.startswith("55") and len(digits) in (12, 13):
-        digits = digits[2:]
-    if len(digits) not in (10, 11):
-        raise ApiError("Cadastre um WhatsApp brasileiro com DDD para pagar com Pix.")
-    return {"countryCode": "55", "areaCode": digits[:2], "number": digits[2:], "type": "MOBILE"}
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ApiError("A InfinitePay retornou uma resposta inválida.")
+        return result
+    except requests.RequestException as exc:
+        app.logger.warning("Falha na API InfinitePay (%s).", path)
+        raise ApiError("A InfinitePay não concluiu a solicitação. Tente novamente ou contate o suporte.") from exc
+    except ValueError as exc:
+        raise ApiError("A InfinitePay retornou uma resposta inválida.") from exc
 
 
 @app.get("/")
@@ -404,7 +399,20 @@ def health():
 @app.get("/api/servicos")
 def api_servicos():
     try:
-        return jsonify(get_catalog())
+        catalog = get_catalog()
+        rate = pix_credit_rate()
+        services = []
+        for service in catalog["services"]:
+            displayed = dict(service)
+            try:
+                price = Decimal(str(service.get("price", ""))) * rate
+                displayed["price"] = format(
+                    price.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), "f"
+                )
+            except InvalidOperation:
+                pass
+            services.append(displayed)
+        return jsonify({**catalog, "services": services})
     except ApiError as exc:
         return jsonify({"erro": str(exc)}), 502
 
@@ -469,16 +477,17 @@ def enviar_pedido_apos_pagamento(payment):
     db.session.commit()
 
 
-def confirmar_cobranca_picpay(payment):
-    charge = picpay_request("GET", f"/charge/{payment.merchant_charge_id}")
-    transactions = charge.get("transactions") or []
-    paid = charge.get("chargeStatus") == "PAID" and any(
-        tx.get("paymentType") == "PIX" and tx.get("transactionStatus") == "PAID"
-        for tx in transactions
-    )
-    if not paid or int(charge.get("amount", -1)) != payment.valor_centavos:
-        payment.status = str(charge.get("chargeStatus", "PENDING"))[:40]
-        db.session.commit()
+def confirmar_cobranca_infinitepay(payment):
+    if not payment.checkout_slug or not payment.transaction_nsu:
+        return False
+    result = infinitepay_request("/payment_check", {
+        "handle": infinitepay_handle(),
+        "order_nsu": payment.merchant_charge_id,
+        "transaction_nsu": payment.transaction_nsu,
+        "slug": payment.checkout_slug,
+    })
+    if (result.get("success") is not True or result.get("paid") is not True
+            or int(result.get("amount", -1)) != payment.valor_centavos):
         return False
     if payment.status not in ("PAID", "PROCESSING"):
         payment.status = "PAID_CONFIRMED"
@@ -495,22 +504,18 @@ def criar_cobranca_pix():
     data = request.get_json(silent=True) or {}
     if data.get("autorizado") is not True:
         return jsonify({"erro": "Confirme que é proprietário do aparelho ou tem autorização expressa."}), 400
-    if data.get("dados_picpay_ok") is not True:
-        return jsonify({"erro": "Autorize o envio dos dados necessários ao PicPay para gerar o Pix."}), 400
-    cpf = re.sub(r"\D", "", str(data.get("cpf", "")))
-    if not re.fullmatch(r"\d{11}", cpf):
-        return jsonify({"erro": "Informe um CPF válido para a cobrança Pix."}), 400
     try:
+        handle = infinitepay_handle()
+        infinitepay_headers()
         catalog = get_catalog()
         service = next((s for s in catalog["services"] if s["id"] == str(data.get("servico_id", ""))), None)
         if not service:
             return jsonify({"erro": "Serviço não encontrado. Atualize o catálogo."}), 400
-        rate = Decimal(os.getenv("PIX_CREDIT_RATE_BRL", "1"))
+        rate = pix_credit_rate()
         price = Decimal(str(service.get("price", "")))
         amount = int((price * rate * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-        if amount < 1:
+        if amount < 100:
             return jsonify({"erro": "Este serviço não tem valor Pix válido. Escolha outro serviço ou fale com o suporte."}), 400
-        phone = picpay_phone(user.whatsapp)
     except (ApiError, InvalidOperation, ValueError) as exc:
         return jsonify({"erro": str(exc)}), 400
     charge_id = str(uuid.uuid4())
@@ -529,27 +534,24 @@ def criar_cobranca_pix():
         return jsonify({"erro": "Informe modelo e IMEI/número de série."}), 400
     db.session.add(payment)
     db.session.commit()
+    from datetime import timedelta
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    site_url = os.getenv("PUBLIC_BASE_URL", "https://alntechcell-gsm-site.onrender.com").rstrip("/")
     payload = {
-        "paymentSource": "GATEWAY",
-        "merchantChargeId": charge_id,
-        "customer": {
-            "name": user.nome,
-            "email": user.email,
-            "documentType": "CPF",
-            "document": cpf,
-            "phone": phone,
-        },
-        "transactions": [{"amount": amount, "pix": {"expiration": 900}}],
+        "handle": handle,
+        "items": [{"description": payment.servico_nome, "price": amount, "quantity": 1}],
+        "order_nsu": charge_id,
+        "redirect_url": f"{site_url}/checkout/retorno",
+        "webhook_url": f"{site_url}/api/infinitepay/webhook",
+        "customer": {"name": user.nome, "email": user.email, "phone_number": user.whatsapp},
+        "options": {"single_payment": True, "valid_until": expires_at},
     }
     try:
-        result = picpay_request("POST", "/charge/pix", json=payload)
-        transactions = result.get("transactions") or []
-        pix = next((tx.get("pix", {}) for tx in transactions if tx.get("paymentType") == "PIX"), {})
-        if not pix.get("qrCode"):
-            raise ApiError("O PicPay não retornou o Pix Copia e Cola.")
-        payment.picpay_id = result.get("id")
-        payment.pix_copia_cola = pix.get("qrCode")
-        payment.pix_qrcode_base64 = pix.get("qrCodeBase64")
+        result = infinitepay_request("/links", payload)
+        checkout_url = result.get("url") or result.get("checkout_url")
+        if not checkout_url or not str(checkout_url).startswith("https://"):
+            raise ApiError("A InfinitePay não retornou um link de checkout válido.")
+        payment.checkout_url = checkout_url
         payment.status = "PENDING"
         db.session.commit()
     except ApiError as exc:
@@ -560,8 +562,7 @@ def criar_cobranca_pix():
         "pagamento_id": payment.id,
         "status": payment.status,
         "valor_centavos": payment.valor_centavos,
-        "pix_copia_cola": payment.pix_copia_cola,
-        "pix_qrcode_base64": payment.pix_qrcode_base64,
+        "checkout_url": payment.checkout_url,
     }), 201
 
 
@@ -569,35 +570,50 @@ def criar_cobranca_pix():
 def status_pagamento(payment_id):
     user = require_user()
     if not user:
-        return jsonify({"erro": "Entre na sua conta para acompanhar o Pix."}), 401
+        return jsonify({"erro": "Entre na sua conta para acompanhar o pagamento."}), 401
     payment = db.session.get(PagamentoPix, payment_id)
     if not payment or (payment.usuario_id != user.id and user.papel != "admin"):
         return jsonify({"erro": "Pagamento não encontrado."}), 404
-    if payment.status in ("PENDING", "PAID_CONFIRMED", "ORDER_ERROR"):
+    if payment.status == "PENDING" and payment.checkout_slug and payment.transaction_nsu:
         try:
-            confirmar_cobranca_picpay(payment)
+            confirmar_cobranca_infinitepay(payment)
         except ApiError as exc:
-            app.logger.warning("Consulta Pix não disponível para pagamento %s: %s", payment.id, exc)
+            app.logger.warning("Consulta InfinitePay não disponível para pagamento %s: %s", payment.id, exc)
     return jsonify({"status": payment.status, "pedido_id": payment.pedido_id, "valor_centavos": payment.valor_centavos})
 
 
-@app.post("/api/picpay/webhook")
-def webhook_picpay():
-    expected = os.getenv("PICPAY_WEBHOOK_TOKEN", "")
-    supplied = request.headers.get("Authorization", "")
-    if not expected or not hmac.compare_digest(supplied, expected):
-        return jsonify({"erro": "Não autorizado."}), 401
+@app.get("/checkout/retorno")
+def retorno_checkout():
+    order_nsu = request.args.get("order_nsu", "")
+    payment = db.session.scalar(select(PagamentoPix).where(PagamentoPix.merchant_charge_id == order_nsu))
+    if payment:
+        payment.checkout_slug = request.args.get("slug", "")[:120] or payment.checkout_slug
+        payment.transaction_nsu = request.args.get("transaction_nsu", "")[:120] or payment.transaction_nsu
+        db.session.commit()
+        try:
+            confirmar_cobranca_infinitepay(payment)
+        except ApiError:
+            app.logger.warning("Retorno da InfinitePay aguardando confirmação do pagamento %s.", payment.id)
+        return redirect(f"/?pagamento_id={payment.id}")
+    return redirect("/")
+
+
+@app.post("/api/infinitepay/webhook")
+def webhook_infinitepay():
     data = request.get_json(silent=True) or {}
-    merchant_charge_id = (data.get("data") or {}).get("merchantChargeId")
-    if not merchant_charge_id:
+    order_nsu = str(data.get("order_nsu", ""))
+    if not order_nsu:
         return jsonify({"erro": "Cobrança não identificada."}), 400
-    payment = db.session.scalar(select(PagamentoPix).where(PagamentoPix.merchant_charge_id == merchant_charge_id))
+    payment = db.session.scalar(select(PagamentoPix).where(PagamentoPix.merchant_charge_id == order_nsu))
     if not payment:
         return jsonify({"erro": "Cobrança não encontrada."}), 404
+    payment.checkout_slug = str(data.get("invoice_slug", ""))[:120] or payment.checkout_slug
+    payment.transaction_nsu = str(data.get("transaction_nsu", ""))[:120] or payment.transaction_nsu
+    db.session.commit()
     try:
-        confirmar_cobranca_picpay(payment)
+        confirmar_cobranca_infinitepay(payment)
     except ApiError:
-        return jsonify({"erro": "Não foi possível validar a cobrança no PicPay."}), 503
+        return jsonify({"erro": "Não foi possível validar a cobrança na InfinitePay."}), 503
     return jsonify({"ok": True})
 
 
