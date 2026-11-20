@@ -558,7 +558,38 @@ def resumo_admin():
     orders = db.session.scalars(select(Pedido).order_by(Pedido.data_criacao.desc()).limit(250)).all()
     return jsonify({
         "usuarios": [{"id": u.id, "nome": u.nome, "email": u.email, "whatsapp": u.whatsapp, "saldo_centavos": get_wallet(u.id).saldo_centavos, "papel": u.papel, "ativo": u.ativo} for u in users],
-        "pedidos": [{"id": p.id, "nome": p.cliente.nome, "whatsapp": p.cliente.whatsapp, "tipo": p.tipo_servico or "—", "quantidade": p.quantidade, "valor_centavos": p.valor_centavos, "servico": p.servico_nome, "status": p.status, "criado": p.data_criacao.isoformat()} for p in orders],
+        "pedidos": [{"id": p.id, "nome": p.cliente.nome, "whatsapp": p.cliente.whatsapp, "tipo": p.tipo_servico or "—", "quantidade": p.quantidade, "valor_centavos": p.valor_centavos, "servico": p.servico_nome, "status": p.status, "criado": p.data_criacao.isoformat(), "resposta_api": (re.sub(r"(?i)(apiaccesskey|api[_ -]?key|token|authorization)\s*[:=]\s*[^,\s]+", r"\1=[oculto]", str(p.resposta_api or ""))[:500])} for p in orders],
+    })
+
+
+@app.get("/api/admin/unlockclean/conta")
+def diagnostico_conta_unlockclean():
+    admin = require_user(admin=True)
+    if not admin:
+        return jsonify({"erro": "Acesso restrito à administração."}), 401
+    try:
+        payload = call_unlockclean("accountinfo")
+    except ApiError as exc:
+        message = re.sub(r"(?i)(apiaccesskey|api[_ -]?key|token|authorization)\\s*[:=]\\s*[^,\\s]+", r"\\1=[oculto]", str(exc))
+        return jsonify({"ok": False, "erro": message[:300]}), 502
+    success = payload.get("SUCCESS") if isinstance(payload, dict) else None
+    if not success or not isinstance(success[0], dict):
+        return jsonify({"ok": False, "erro": "A API não retornou os dados da conta."}), 502
+    root = success[0]
+    account = next(
+        (value for key, value in root.items()
+         if str(key).casefold() in {"accountinfo", "account", "accoutinfo"}
+         and isinstance(value, dict)),
+        root,
+    )
+    return jsonify({
+        "ok": True,
+        "usuario_configurado": UNLOCKCLEAN_USERNAME,
+        "conta": {
+            "email": account.get("mail") or account.get("email"),
+            "saldo": account.get("credit") or account.get("creditraw"),
+            "moeda": account.get("currency"),
+        },
     })
 
 
