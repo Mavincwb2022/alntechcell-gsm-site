@@ -39,6 +39,9 @@ UNLOCKCLEAN_PUBLIC_URL = os.getenv(
     "UNLOCKCLEAN_PUBLIC_URL", "https://unlockingclean.com/public"
 )
 
+# Explicitly authorized administrator accounts. Manage additional addresses with ADMIN_EMAILS.
+ADMIN_EMAILS = {email.strip().lower() for email in os.getenv("ADMIN_EMAILS", "alntechcelloficial@gmail.com").split(",") if email.strip()}
+
 
 class Cliente(db.Model):
     __tablename__ = "clientes"
@@ -443,7 +446,7 @@ def registrar_usuario():
         return jsonify({"erro": "Use uma senha com 12 caracteres, letras minúsculas e maiúsculas e um caractere especial."}), 400
     if db.session.scalar(select(Usuario.id).where((Usuario.email == email) | (Usuario.whatsapp == whatsapp))):
         return jsonify({"erro": "Já existe uma conta com esse e-mail ou WhatsApp."}), 409
-    user = Usuario(nome=nome, email=email, whatsapp=whatsapp, moeda=moeda, pais=pais, cidade=cidade, endereco=endereco, termos_aceitos_em=datetime.now(timezone.utc), senha_hash=generate_password_hash(senha))
+    user = Usuario(nome=nome, email=email, whatsapp=whatsapp, moeda=moeda, pais=pais, cidade=cidade, endereco=endereco, termos_aceitos_em=datetime.now(timezone.utc), senha_hash=generate_password_hash(senha), papel="admin" if email in ADMIN_EMAILS else "usuario")
     db.session.add(user)
     try:
         db.session.flush()
@@ -452,6 +455,9 @@ def registrar_usuario():
     except Exception:
         db.session.rollback()
         return jsonify({"erro": "Não foi possível criar a conta. Verifique se o e-mail ou WhatsApp já está cadastrado."}), 409
+    if user.email.strip().lower() in ADMIN_EMAILS and user.papel != "admin":
+        user.papel = "admin"
+        db.session.commit()
     session.clear()
     session["user_id"] = user.id
     session.permanent = True
