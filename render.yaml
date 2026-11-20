@@ -29,4 +29,4 @@ services:
       - key: INFINITEPAY_HANDLE
         sync: false
       - key: PIX_CREDIT_RATE_BRL
-        value: "1.70"
+        value: "1.50"
