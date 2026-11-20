@@ -318,7 +318,7 @@ def wallet_summary(user):
         .where(DonoPedido.usuario_id == user.id)
     ).all()
     statuses = [str(order.status or "").casefold() for order in orders]
-    completed = {order.id for order, status in zip(orders, statuses) if "conclu" in status or "sucesso" in status or "devolvido" in status}
+    completed = {order.id for order, status in zip(orders, statuses) if "conclu" in status or "sucesso" in status or "devolvido" in status or "recusado" in status or "rejeitado" in status}
     blocked_cents = sum(order.valor_centavos for order in orders if order.id not in completed and order.valor_centavos > 0)
     return {
         "saldo_centavos": wallet.saldo_centavos,
@@ -352,6 +352,38 @@ def lancar_saldo(user_id, amount_cents, kind, reference, description, received=F
         descricao=description[:200],
     ))
     db.session.commit()
+    return True
+
+def devolver_saldo_pedido_recusado(order):
+    """Credita de volta o débito original, uma única vez, após recusa do fornecedor."""
+    dono = db.session.scalar(select(DonoPedido).where(DonoPedido.pedido_id == order.id))
+    if not dono:
+        app.logger.warning("Pedido recusado %s sem proprietário; estorno não realizado.", order.id)
+        return False
+    debit = db.session.scalar(select(LancamentoCarteira).where(
+        LancamentoCarteira.referencia == f"pedido:{order.id}",
+        LancamentoCarteira.usuario_id == dono.usuario_id,
+        LancamentoCarteira.valor_centavos < 0,
+    ))
+    if not debit:
+        app.logger.warning("Pedido recusado %s sem débito original; estorno não realizado.", order.id)
+        return False
+    refund_reference = f"estorno-pedido:{order.id}"
+    existing = db.session.scalar(select(LancamentoCarteira.id).where(
+        LancamentoCarteira.referencia == refund_reference,
+    ))
+    if existing:
+        return True
+    credited = lancar_saldo(
+        dono.usuario_id,
+        -debit.valor_centavos,
+        "estorno",
+        refund_reference,
+        f"Devolução automática do pedido recusado #{order.id}",
+    )
+    if credited is None:
+        app.logger.error("Não foi possível devolver à carteira o pedido recusado %s.", order.id)
+        return False
     return True
 
 
@@ -586,6 +618,8 @@ def meus_pedidos():
                     pedido.status = {4: "Concluído", 3: "Recusado", 2: "Em andamento", 1: "Em andamento", 0: "Aguardando"}.get(status, "Aguardando")
                     # Keep the latest supplier response so credentials/licenses survive refreshes.
                     pedido.resposta_api = json.dumps(resultado, ensure_ascii=False)
+                    if status == 3:
+                        devolver_saldo_pedido_recusado(pedido)
             db.session.commit()
     except (ApiError, requests.RequestException):
         pass
