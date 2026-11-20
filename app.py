@@ -483,6 +483,22 @@ def pagina_historico_pedidos():
     return render_template("orders.html")
 
 
+@app.post("/api/auth/profile/name")
+def atualizar_nome_perfil():
+    user = require_user()
+    if not user:
+        return jsonify({"erro": "Entre na sua conta para alterar o nome."}), 401
+    data = request.get_json(silent=True) or {}
+    nome = str(data.get("nome", "")).strip()[:100]
+    if not nome:
+        return jsonify({"erro": "Informe um nome válido."}), 400
+    user.nome = nome
+    for cliente in db.session.scalars(select(Cliente).where(Cliente.whatsapp == user.whatsapp)):
+        cliente.nome = nome
+    db.session.commit()
+    return jsonify({"usuario": {"nome": user.nome, "email": user.email}})
+
+
 @app.get("/api/admin/resumo")
 def resumo_admin():
     user = require_user(admin=True)
