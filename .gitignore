@@ -1,5 +1,16 @@
 __pycache__/
 *.py[cod]
 *.db
+*.sqlite
+*.sqlite3
 .env
+.env.*
+!.env.example
 .venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
