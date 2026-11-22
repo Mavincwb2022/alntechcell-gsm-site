@@ -15,6 +15,7 @@ import requests
 from flask import Flask, jsonify, redirect, render_template, request, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -23,6 +24,7 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 app.config["PERMANENT_SESSION_LIFETIME"] = 60 * 60 * 12
+app.config["MAX_CONTENT_LENGTH"] = 256 * 1024
 database_url = os.getenv("DATABASE_URL", "sqlite:///local.db")
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
@@ -32,16 +34,24 @@ app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
+
+@app.after_request
+def add_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    forwarded_proto = request.headers.get("X-Forwarded-Proto", "").split(",", 1)[0].strip().lower()
+    if forwarded_proto == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    return response
+
 # Keep the API access key in the hosting provider's secret environment settings.
 UNLOCKCLEAN_API_KEY = os.getenv("UNLOCKCLEAN_API_KEY", "")
 UNLOCKCLEAN_USERNAME = os.getenv("UNLOCKCLEAN_USERNAME", "alntechunlocker@gmail.com")
 UNLOCKCLEAN_PUBLIC_URL = os.getenv(
     "UNLOCKCLEAN_PUBLIC_URL", "https://unlockingclean.com/public"
 )
-
-# Explicitly authorized administrator accounts. Manage additional addresses with ADMIN_EMAILS.
-ADMIN_EMAILS = {email.strip().lower() for email in os.getenv("ADMIN_EMAILS", "alntechcelloficial@gmail.com").split(",") if email.strip()}
-
 
 class Cliente(db.Model):
     __tablename__ = "clientes"
@@ -321,7 +331,7 @@ def wallet_summary(user):
         .where(DonoPedido.usuario_id == user.id)
     ).all()
     statuses = [str(order.status or "").casefold() for order in orders]
-    completed = {order.id for order, status in zip(orders, statuses) if "conclu" in status or "sucesso" in status or "devolvido" in status or "recusado" in status or "rejeitado" in status}
+    completed = {order.id for order, status in zip(orders, statuses) if "conclu" in status or "sucesso" in status or "devolvido" in status or "recusado" in status or "rejeitado" in status or "cancelado" in status}
     blocked_cents = sum(order.valor_centavos for order in orders if order.id not in completed and order.valor_centavos > 0)
     return {
         "saldo_centavos": wallet.saldo_centavos,
@@ -446,7 +456,7 @@ def registrar_usuario():
         return jsonify({"erro": "Use uma senha com 12 caracteres, letras minúsculas e maiúsculas e um caractere especial."}), 400
     if db.session.scalar(select(Usuario.id).where((Usuario.email == email) | (Usuario.whatsapp == whatsapp))):
         return jsonify({"erro": "Já existe uma conta com esse e-mail ou WhatsApp."}), 409
-    user = Usuario(nome=nome, email=email, whatsapp=whatsapp, moeda=moeda, pais=pais, cidade=cidade, endereco=endereco, termos_aceitos_em=datetime.now(timezone.utc), senha_hash=generate_password_hash(senha), papel="admin" if email in ADMIN_EMAILS else "usuario")
+    user = Usuario(nome=nome, email=email, whatsapp=whatsapp, moeda=moeda, pais=pais, cidade=cidade, endereco=endereco, termos_aceitos_em=datetime.now(timezone.utc), senha_hash=generate_password_hash(senha))
     db.session.add(user)
     try:
         db.session.flush()
@@ -455,9 +465,6 @@ def registrar_usuario():
     except Exception:
         db.session.rollback()
         return jsonify({"erro": "Não foi possível criar a conta. Verifique se o e-mail ou WhatsApp já está cadastrado."}), 409
-    if user.email.strip().lower() in ADMIN_EMAILS and user.papel != "admin":
-        user.papel = "admin"
-        db.session.commit()
     session.clear()
     session["user_id"] = user.id
     session.permanent = True
@@ -564,8 +571,100 @@ def resumo_admin():
     orders = db.session.scalars(select(Pedido).order_by(Pedido.data_criacao.desc()).limit(250)).all()
     return jsonify({
         "usuarios": [{"id": u.id, "nome": u.nome, "email": u.email, "whatsapp": u.whatsapp, "saldo_centavos": get_wallet(u.id).saldo_centavos, "papel": u.papel, "ativo": u.ativo} for u in users],
-        "pedidos": [{"id": p.id, "nome": p.cliente.nome, "whatsapp": p.cliente.whatsapp, "tipo": p.tipo_servico or "—", "quantidade": p.quantidade, "valor_centavos": p.valor_centavos, "servico": p.servico_nome, "status": p.status, "criado": p.data_criacao.isoformat(), "resposta_api": (re.sub(r"(?i)(apiaccesskey|api[_ -]?key|token|authorization)\s*[:=]\s*[^,\s]+", r"\1=[oculto]", str(p.resposta_api or ""))[:500])} for p in orders],
+        "pedidos": [{"id": p.id, "nome": p.cliente.nome, "whatsapp": p.cliente.whatsapp, "tipo": p.tipo_servico or "—", "quantidade": p.quantidade, "valor_centavos": p.valor_centavos, "servico": p.servico_nome, "status": p.status, "criado": p.data_criacao.isoformat(), "tem_referencia_api": bool(p.referencia_api), "resposta_api": (re.sub(r"(?i)(apiaccesskey|api[_ -]?key|token|authorization)\s*[:=]\s*[^,\s]+", r"\1=[oculto]", str(p.resposta_api or ""))[:500])} for p in orders],
     })
+
+
+@app.post("/api/admin/pedidos/<int:order_id>/atualizar")
+def atualizar_pedido_admin(order_id):
+    admin = require_user(admin=True)
+    if not admin:
+        return jsonify({"erro": "Acesso restrito à administração."}), 401
+    order = db.session.get(Pedido, order_id)
+    if not order:
+        return jsonify({"erro": "Pedido não encontrado."}), 404
+    if not order.referencia_api:
+        return jsonify({"erro": "O fornecedor ainda não forneceu uma referência para consultar."}), 409
+    try:
+        payload = call_unlockclean("getimeiorderbulk", {str(order.id): {"ID": order.referencia_api}})
+    except ApiError as exc:
+        return jsonify({"erro": str(exc)}), 502
+    item = (payload.get(str(order.id), {}).get("SUCCESS") or []) if isinstance(payload, dict) else []
+    if not item or not isinstance(item[0], dict):
+        return jsonify({"erro": "O fornecedor não retornou o status deste pedido."}), 502
+    result = item[0]
+    try:
+        supplier_status = int(result.get("STATUS", 0))
+    except (TypeError, ValueError):
+        return jsonify({"erro": "O fornecedor retornou um status inválido."}), 502
+    status_map = {4: "Concluído", 3: "Recusado", 2: "Em andamento", 1: "Em andamento", 0: "Aguardando"}
+    if supplier_status not in status_map:
+        return jsonify({"erro": "O fornecedor retornou um status desconhecido."}), 502
+    order.status = status_map[supplier_status]
+    order.resposta_api = json.dumps(result, ensure_ascii=False)
+    if supplier_status == 3:
+        devolver_saldo_pedido_recusado(order)
+    db.session.commit()
+    return jsonify({"ok": True, "pedido_id": order.id, "status": order.status})
+
+
+@app.post("/api/admin/pedidos/<int:order_id>/concluir-manual")
+def concluir_pedido_manual_admin(order_id):
+    admin = require_user(admin=True)
+    if not admin:
+        return jsonify({"erro": "Acesso restrito à administração."}), 401
+    order = db.session.get(Pedido, order_id)
+    if not order:
+        return jsonify({"erro": "Pedido não encontrado."}), 404
+    data = request.get_json(silent=True) or {}
+    result_text = str(data.get("resultado", "")).strip()[:500]
+    confirmed = data.get("confirmado") is True
+    if not confirmed or len(result_text) < 2:
+        return jsonify({"erro": "Confirme a conclusão e informe o resultado entregue ao cliente."}), 400
+    if order.status in ("Concluído", "Saldo devolvido", "Cancelado", "Recusado", "Rejeitado"):
+        return jsonify({"erro": "Este pedido já está finalizado."}), 409
+    order.status = "Concluído"
+    order.resposta_api = json.dumps({"CODE": result_text, "COMMENTS": "Concluído manualmente pelo administrador"}, ensure_ascii=False)
+    db.session.commit()
+    return jsonify({"ok": True, "pedido_id": order.id, "status": order.status})
+
+
+@app.post("/api/admin/pedidos/<int:order_id>/cancelar")
+def cancelar_pedido_admin(order_id):
+    admin = require_user(admin=True)
+    if not admin:
+        return jsonify({"erro": "Acesso restrito à administração."}), 401
+    order = db.session.get(Pedido, order_id)
+    if not order:
+        return jsonify({"erro": "Pedido não encontrado."}), 404
+    data = request.get_json(silent=True) or {}
+    if data.get("fornecedor_cancelou") is not True:
+        return jsonify({"erro": "Confirme que o fornecedor cancelou o pedido antes de devolver o saldo."}), 400
+    if order.status in ("Concluído", "Saldo devolvido", "Cancelado"):
+        return jsonify({"erro": "Este pedido já está finalizado."}), 409
+    if order.status not in ("Aguardando", "Pendente"):
+        return jsonify({"erro": "Só é possível cancelar pedidos que ainda estão em espera no fornecedor."}), 409
+    owner = db.session.scalar(select(DonoPedido).where(DonoPedido.pedido_id == order.id))
+    debit = db.session.scalar(select(LancamentoCarteira).where(
+        LancamentoCarteira.referencia == f"pedido:{order.id}",
+        LancamentoCarteira.valor_centavos < 0,
+    ))
+    if not owner or not debit or debit.usuario_id != owner.usuario_id:
+        return jsonify({"erro": "Não há débito de carteira vinculado para devolver."}), 409
+    refund_ref = f"estorno-pedido:{order.id}"
+    if not db.session.scalar(select(LancamentoCarteira.id).where(LancamentoCarteira.referencia == refund_ref)):
+        applied = lancar_saldo(
+            owner.usuario_id,
+            -debit.valor_centavos,
+            "estorno",
+            refund_ref,
+            f"Devolução do pedido cancelado #{order.id}",
+        )
+        if applied is None:
+            return jsonify({"erro": "Não foi possível devolver o saldo."}), 409
+    order.status = "Cancelado"
+    db.session.commit()
+    return jsonify({"ok": True, "pedido_id": order.id, "valor_centavos": -debit.valor_centavos})
 
 
 @app.get("/api/admin/unlockclean/conta")
@@ -576,7 +675,7 @@ def diagnostico_conta_unlockclean():
     try:
         payload = call_unlockclean("accountinfo")
     except ApiError as exc:
-        message = re.sub(r"(?i)(apiaccesskey|api[_ -]?key|token|authorization)\\s*[:=]\\s*[^,\\s]+", r"\\1=[oculto]", str(exc))
+        message = re.sub(r"(?i)(apiaccesskey|api[_ -]?key|token|authorization)\s*[:=]\s*[^,\s]+", r"\1=[oculto]", str(exc))
         return jsonify({"ok": False, "erro": message[:300]}), 502
     success = payload.get("SUCCESS") if isinstance(payload, dict) else None
     if not success or not isinstance(success[0], dict):
@@ -635,7 +734,7 @@ def meus_pedidos():
     if not user:
         return jsonify({"erro": "Entre na sua conta para ver os pedidos."}), 401
     pedidos = db.session.scalars(select(Pedido).join(DonoPedido, DonoPedido.pedido_id == Pedido.id).where(DonoPedido.usuario_id == user.id).order_by(Pedido.data_criacao.desc())).all()
-    status_finalizado = {"Concluído", "Recusado", "Rejeitado", "Saldo devolvido"}
+    status_finalizado = {"Concluído", "Recusado", "Rejeitado", "Saldo devolvido", "Cancelado"}
     remote_ids = {
         p.id: {"ID": p.referencia_api}
         for p in pedidos
@@ -690,6 +789,11 @@ def meus_pedidos():
 
 @app.get("/health")
 def health():
+    try:
+        db.session.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        db.session.rollback()
+        return jsonify({"status": "database_unavailable"}), 503
     return jsonify({"status": "ok"})
 
 
@@ -709,7 +813,7 @@ def api_servicos():
             except InvalidOperation:
                 pass
             services.append(displayed)
-        return jsonify({**catalog, "services": services})
+        return jsonify({"services": services})
     except ApiError as exc:
         return jsonify({"erro": str(exc)}), 502
 
@@ -1088,3 +1192,4 @@ def consultar_pedidos():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
